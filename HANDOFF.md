@@ -1,202 +1,120 @@
-# Mind Spiral — HANDOFF
+# Mind Spiral — HANDOFF（2026-02-09）
 
-## 當前狀態（2026-02-08）
+## 當前狀態
 
-專案剛從 16_moltbot_joey 拆出來。**概念設計完成，程式碼尚未開始。**
+Phase 0 + Phase 1 核心完成。引擎可端到端跑：signal → conviction → trace → contradiction → daily digest。
 
-Joey 的知識庫（16）已有 2,856 個 atoms，五條輸入管線都能跑。Mind Spiral（18）要做的是把這些 atoms 升級為五層思維模型的引擎，並支援多人使用。
+Joey 的第一次全量跑已完成，結果可用。
 
-### 已完成
+## 數據現況（Joey）
 
-| 項目 | 檔案 | 狀態 |
-|------|------|------|
-| 五層架構設計 | `MIND_SPIRAL.md` | ✅ |
-| Layer 1 Signal schema（含 owner_id） | `schemas/signal.json` | ✅ |
-| Layer 2 Conviction schema | `schemas/conviction.json` | ✅ |
-| Layer 3 Reasoning Trace schema | `schemas/reasoning_trace.json` | ✅ |
-| Layer 4 Context Frame schema | `schemas/context_frame.json` | ✅ |
-| Layer 5 Identity Core schema | `schemas/identity_core.json` | ✅ |
-| PRD v1（概念完整版） | `PRD.md` | ✅ |
-| PRD v2（效能優先版） | `PRD-v2-performance.md` | ✅ |
-| 參考專案研究 | `REFERENCES.md` | ✅ |
-| 專案結構 + CLAUDE.md | `CLAUDE.md` | ✅ |
-| 預設設定 | `config/default.yaml` | ✅ |
-| 16 的 CLAUDE.md 更新為 instance 角色 | `16_moltbot_joey/CLAUDE.md` | ✅ |
-| shifu 總目錄加入 18 | `shifu/CLAUDE.md` | ✅ |
+| 層 | 數量 | 狀態 |
+|----|------|------|
+| Layer 1: Signals | 2,737 | ✅ 從 16_moltbot_joey atoms 遷移完成 |
+| Layer 2: Convictions | 49 active | ✅ embedding 聚類 + 共鳴收斂 + LLM |
+| Layer 3: Traces | 184 | ✅ v2 分組模式全量提取完成 |
+| Layer 4: Frames | — | 尚未實作 |
+| Layer 5: Identity | — | 尚未實作 |
 
-### 未開始
+Daily batch 首次結果：7 new convictions、208 new traces、61 contradictions、304 followups。
 
-| 項目 | 優先級 | 說明 |
-|------|--------|------|
-| engine/ 基本框架 | **Phase 0** | models.py, config.py, llm.py |
-| signal_store.py | **Phase 0** | CRUD + embedding 計算 |
-| atoms → signals 遷移工具 | **Phase 0** | 2,856 atoms 加 direction + owner_id |
-| conviction_detector.py | **Phase 1** | 核心中的核心 |
-| contradiction_alert.py | **Phase 1** | 偵測矛盾 → 推 LINE |
-| LINE Bot 最小版 | **Phase 1** | 推送 + 收回覆 |
-| daily_batch.py（v2 限定） | **Phase 1** | 整合每日運算 |
-| trace_extractor.py | **Phase 2** | 從逐字稿提取推理軌跡 |
-| daily_digest.py | **Phase 2** | 每日早晨整理 |
-| decision_tracker.py | **Phase 2** | 決策追蹤回訪 |
-| frame_clusterer.py | **Phase 3** | 情境框架聚類 |
-| identity_scanner.py | **Phase 3** | 身份核心偵測 |
-| query_engine.py | **Phase 3** | 數位分身回答 |
-| 瀏覽器插件 | **Phase 4** | 被動擷取 |
+### Joey 的思維指紋（從 184 traces）
 
----
+- **推理風格**：first_principles（70）> analytical（39）> storytelling（23）
+- **觸發場景**：teaching_moment 佔 67%（106/158）
+- **常用步驟**：apply_framework（114）> synthesize（87）> reframe（85）
+- **信心程度**：97% high confidence
 
-## 兩版 PRD 的關係
-
-| | PRD.md（v1） | PRD-v2-performance.md（v2） |
-|---|---|---|
-| 定位 | 概念完整，準確率優先 | 效能優先，成本最低 |
-| Conviction 偵測 | LLM 逐一比對 | embedding 聚類 + 欄位檢查 |
-| 每日 LLM calls | 100-500 | 1-9 |
-| 查詢延遲 | 5-15 秒（5 次 LLM） | 1-3 秒（1 次 LLM） |
-| 月度 tokens | 3M-7.5M | ~900K |
-| 預期準確率 | ~90% | ~80%（待驗證） |
-
-**兩版共用同一套 schema。** 差異只在 `conviction_detector.py` 和 `query_engine.py` 的實作方式。可用 feature flag 切換。
-
-**建議**：先實作 v2（快、便宜），用 benchmark 驗證準確率。如果夠好就用 v2；如果某些場景不夠，再針對那些場景用 v1 的 LLM 比對補強。
-
----
-
-## 下一步：Phase 0 的具體任務
-
-Phase 0 的目標：**讓 2,856 個既有 atoms 變成可被引擎處理的 signals。**
-
-### 任務 0-1：engine/ 基本框架
-
-建立 Python package 結構：
+## 已完成的檔案
 
 ```
 engine/
-├── __init__.py
-├── config.py        ← 讀 config/default.yaml
-├── models.py        ← Pydantic models（從 schemas/ 生成）
-└── llm.py           ← call_llm() 抽象層
+├── cli.py                    ← CLI（detect/extract/followups/outcome/daily/weekly/stats/search）
+├── config.py                 ← 設定管理
+├── llm.py                    ← LLM 抽象層（local/cloud/claude_code + batch_llm 並行）
+├── models.py                 ← 五層 Pydantic models
+├── signal_store.py           ← Layer 1 CRUD + ChromaDB
+├── conviction_detector.py    ← Layer 2：embedding 聚類 + 五種共鳴收斂
+├── trace_extractor.py        ← Layer 3：按 (date, context) 分組提取（v2）
+├── decision_tracker.py       ← 決策追蹤 + outcome 螺旋回饋
+├── contradiction_alert.py    ← 矛盾偵測
+└── daily_batch.py            ← 每日/每週 orchestrator
+
+config/default.yaml           ← 含 claude_code backend 設定
+run_full_extract.py           ← 全量 extract 腳本
+run_daily_after_extract.sh    ← extract 完接 daily batch
 ```
 
-### 任務 0-2：signal_store.py
+## LLM Backend
 
-```python
-# 核心介面
-def ingest(owner_id, signals: list[Signal]) -> None
-def query(owner_id, topics=None, date_range=None, direction=None) -> list[Signal]
-def compute_embedding(text: str) -> list[float]
-def stats(owner_id) -> dict
-```
+三種模式：
 
-寫入時同時計算 embedding，存入 ChromaDB。
+| Backend | 設定 | 用途 |
+|---------|------|------|
+| `local` | Ollama localhost:11434 | 本地免費，需啟動 Ollama |
+| `cloud` | Cloudflare AI Gateway | 未設定，待 Task #5 |
+| `claude_code` | Agent SDK + 訂閱認證 | ✅ 目前主力，不需 API key |
 
-### 任務 0-3：atoms → signals 遷移工具
+`batch_llm()` 在 `claude_code` 模式下透過 `asyncio.Semaphore(5)` 並行處理。
 
-```python
-# migrate_atoms.py
-# 讀 16_moltbot_joey/knowledge-base/atoms.jsonl
-# 映射規則：
-#   atom.type in [idea, belief, decision, framework, quote, open_question]
-#     + atom.source.input_modality starts with "spoken" or "written"
-#     → direction = "output"
-#   atom.authority == "referenced" or "endorsed"
-#     → direction = "input"
-#   atom.authority == "own_voice"
-#     → direction = "output"
-#   atom_id → signal_id（格式轉換）
-#   加 owner_id = "joey"
-```
+## 已知問題
 
-遷移完成後跑 `stats("joey")` 確認數量和分佈。
+### P0: LLM 幻覺混入假 conviction
+- 「我需要先查看這些文件的內容才能總結核心信念」— LLM 自我描述，不是 Joey 的信念
+- **解法**：prompt 加防護 + 後處理過濾 LLM 自指詞
 
-### 任務 0-4：驗證
+### P1: 304 個待追蹤決策
+- 歷史 traces 一次灌入，全部沒 outcome 所以全判 pending
+- **解法**：`decision_tracker` 加 `backfill_skip`，首次跑跳過歷史
+
+### P1: 61 個 contradictions 偏高
+- 可能有 false positive
+- **解法**：調高 similarity threshold 或加 LLM confidence 過濾
+
+### P2: trace v2 去重邏輯
+- 用 `trigger.from_signal`（組內第一個 signal）去重，不夠精確
+- 實際影響不大
+
+## 下一步
+
+### 短期（修復 + 補完）
+- [ ] 修復 P0：LLM 幻覺 conviction 過濾
+- [ ] 修復 P1：decision_tracker 歷史跳過
+- [ ] LLM 雲端模型支援（Cloudflare AI Gateway）
+
+### Phase 2（PRD 定義）— 被動擷取
+- [ ] 瀏覽器插件（搜尋/點擊/停留/畫線）
+- [ ] 搜尋鏈偵測
+- [ ] process_browsing.py
+
+### Phase 3 — 數位分身
+- [ ] frame_clusterer.py（Layer 4：從 traces 聚類情境框架）
+- [ ] identity_scanner.py（Layer 5：跨 frame 覆蓋率篩選）
+- [ ] query_engine.py（五層感知 RAG）
+
+## 常用指令
 
 ```bash
-# 遷移後應該看到
+# 設定 backend
+# 在 config/default.yaml 中 engine.llm_backend: claude_code
+
+# 日常操作
 mind-spiral stats --owner joey
+mind-spiral detect --owner joey
+mind-spiral extract --owner joey --limit 10
+mind-spiral followups --owner joey
+mind-spiral outcome --owner joey --trace-id xxx --result positive --note "成效不錯"
+mind-spiral daily --owner joey
+mind-spiral weekly --owner joey
 
-Signals: 2,856
-  direction:
-    input: ~1,200（書籍、referenced atoms）
-    output: ~1,656（spoken/written atoms）
-  modality distribution: ...
-  date range: ...
-  topics: ...
+# 全量跑
+uv run python run_full_extract.py
 ```
 
----
-
-## Phase 1 的前置決策
-
-進入 Phase 1 前需要決定：
-
-### 決策 1：先跑 v1 還是 v2？
-
-**建議 v2 先**。理由：
-- 2,856 個 signals 的 embedding 聚類只要幾秒
-- 馬上就能看到 conviction 候選
-- 如果準確率夠好，省下大量開發和成本
-- 如果不夠好，v1 的 LLM 比對可以後加
-
-### 決策 2：Embedding 模型選哪個？
-
-| 模型 | 大小 | 中文品質 | 速度 |
-|------|------|---------|------|
-| bge-m3 | 2.3GB | 好 | 中 |
-| bge-large-zh | 1.3GB | 好 | 快 |
-| text-embedding-3-small（OpenAI） | 雲端 | 中 | 快 |
-
-**建議 bge-m3**（本地跑，中文品質最好）。
-
-### 決策 3：聚類 threshold 設多少？
-
-需要實驗。初始建議：
-- cosine similarity > 0.80 = 同一個 cluster
-- 跑完後人工抽查 20 個 cluster，調整 threshold
-
----
-
-## 與 16_moltbot_joey 的協作方式
+## Git log
 
 ```
-16（Joey instance）                    18（Mind Spiral engine）
-
-process_daily.py ─── 輸出 signal ────→ signal_store.ingest("joey", signals)
-process_content.py ─ 輸出 signal ────→ signal_store.ingest("joey", signals)
-process_chat.py ──── 輸出 signal ────→ signal_store.ingest("joey", signals)
-process_reading.py ─ 輸出 signal ────→ signal_store.ingest("joey", signals)
-
-                                       conviction_detector.detect("joey")
-                                       daily_batch.run("joey")
-                                       query_engine.query("joey", caller, question)
-```
-
-16 的 pipeline 需要適配輸出格式（atom → signal），但邏輯不用大改。可以在 16 加一個 `signal_adapter.py` 做格式轉換。
-
----
-
-## 檔案清單
-
-```
-18-mind-spiral/
-├── CLAUDE.md                       ← 開發指引
-├── README.md                       ← 專案說明
-├── HANDOFF.md                      ← 你在這裡
-├── PRD.md                          ← v1 概念完整版
-├── PRD-v2-performance.md           ← v2 效能優先版
-├── MIND_SPIRAL.md                  ← 五層架構設計
-├── REFERENCES.md                   ← 參考專案研究
-├── .gitignore                      ← 排除 data/
-├── config/
-│   └── default.yaml                ← 預設引擎參數
-├── schemas/
-│   ├── signal.json                 ← Layer 1
-│   ├── conviction.json             ← Layer 2
-│   ├── reasoning_trace.json        ← Layer 3
-│   ├── context_frame.json          ← Layer 4
-│   └── identity_core.json          ← Layer 5
-├── engine/                         ← 待開發
-├── browser-ext/                    ← 待開發
-├── line-bot/                       ← 待開發
-└── tests/                          ← 待開發
+7af9fdf refactor: trace_extractor v2 — 按 (date, context) 分組提取推理軌跡
+8b2831b feat: Phase 1 完成 — conviction detection + trace extraction + claude_code backend
+ef217e1 feat: Phase 0 完成 — 引擎基礎框架 + atoms 遷移工具
 ```
