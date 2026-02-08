@@ -24,14 +24,16 @@ Pending followups: 0（backfill_cutoff 生效）
 - **信心程度**：93% high confidence、6% medium
 - **信念領域**：short_video（21）> content_creation（18）> personal_branding（17）> entrepreneurship（14）
 
-### Layer 4: 情境框架
+### Layer 4: 思維框架（v2 語義聚類）
 
-| Frame | 名稱 | 推理風格 | 關聯信念 |
-|-------|------|----------|----------|
-| social_post | 社群教學與價值傳遞 | first_principles | 5 |
-| team_meeting | 數據驅動決策框架 | analytical | 3 |
-| one_on_one | 一對一引導決策 | analytical | 7 |
-| short_video | 短影音創業實戰指導 | first_principles | 2 |
+v2 改用 trace 語義特徵 embedding 聚類，不再按字面 context 分組。框架代表「怎麼想」而非「在哪裡想」。
+
+| Frame | 名稱 | 推理風格 | Traces | 關聯信念 |
+|-------|------|----------|--------|----------|
+| 1 | 行動優先實戰框架 | first_principles | 20 | 5 |
+| 2 | 系統化管理與第一原則決策 | first_principles | 20 | 7 |
+| 3 | 同理傾聽驅動決策 | empathy_driven | 18 | 7 |
+| 4 | 反直覺理性投資框架 | analytical | 5 | 7 |
 
 ### Layer 5: 身份核心
 
@@ -39,11 +41,11 @@ Pending followups: 0（backfill_cutoff 生效）
 
 - 覆蓋率：75%（3/4 frames）
 - consistency: 0.8
-- 情境表現：
-  - **社群發文**：用實測過的最小方案當教學案例，鼓勵讀者立刻用最簡單版本開始做
-  - **團隊會議**：提議先用最低成本做 AB 測試驗證假設，用數據確認方向後再投入資源
-  - **一對一輔導**：引導對方先用最簡單方式試一次，消除「要做到完美才能開始」的阻力
-  - **短影音**：教學生用手機拍第一支影片直接發布測試數據，根據反饋調整方向
+- 跨框架表現：
+  - **行動優先實戰**：先推出最簡陋的 MVP 測試市場反應，透過真實用戶反饋決定下一步
+  - **系統化管理**：建立最小可行的追蹤系統先跑數據，根據初期結果調整指標與流程
+  - **同理傾聽**：先用簡單提問快速確認對方核心需求，依回應動態調整建議
+  - **理性投資**：先用小額資金測試投資策略的實際效果，透過市場波動修正心態
 
 ## 已完成的檔案
 
@@ -56,7 +58,7 @@ engine/
 ├── signal_store.py           ← Layer 1 CRUD + ChromaDB
 ├── conviction_detector.py    ← Layer 2：embedding 聚類 + 共鳴收斂 + 幻覺過濾
 ├── trace_extractor.py        ← Layer 3：按 (date, context) 分組提取 + 分組級去重
-├── frame_clusterer.py        ← Layer 4：按 context 分組 + 統計 + LLM 生成 metadata
+├── frame_clusterer.py        ← Layer 4：trace 語義 embedding 聚類（v2）+ LLM 生成 metadata
 ├── identity_scanner.py       ← Layer 5：跨 frame 覆蓋率篩選 + LLM 生成 expressions
 ├── query_engine.py           ← 五層感知 RAG（反射匹配 + ChromaDB 索引 + identity 檢查）
 ├── decision_tracker.py       ← 決策追蹤 + outcome 螺旋回饋 + 歷史跳過
@@ -70,11 +72,12 @@ config/default.yaml           ← claude_code backend + 防護設定
 
 ## Phase 2 新增模組說明
 
-### frame_clusterer.py（Layer 4）
-- 從 traces 按 `source.context` 分組（如 team_meeting / one_on_one / presentation）
-- 每組統計：conviction 激活頻率、推理風格分佈、觸發類型
+### frame_clusterer.py（Layer 4，v2 語義聚類）
+- 每個 trace 轉成語義文字（trigger.situation + conclusion + activated convictions + style）
+- 用 embedding + AgglomerativeClustering 聚類（threshold 可調，預設 0.55）
+- 每個 cluster 統計：conviction 激活頻率、推理風格、觸發類型、出現場景
 - 用 LLM 生成 frame 名稱、描述、trigger_patterns、語氣
-- 比對既有 frames，避免重複（更新 or 新增）
+- 全量覆寫（每次重新聚類），不做增量更新
 
 ### identity_scanner.py（Layer 5）
 - 載入所有 active frames，統計每個 conviction 的跨 frame 覆蓋率
@@ -144,12 +147,12 @@ uv run python migrate_atoms.py --atoms /path/to/atoms.jsonl --owner joey
 ## Git log
 
 ```
+7abd6ee refactor: frame_clusterer v2 — 語義聚類取代字面 context 分組
 a1f9f20 feat: Layer 4/5 首次執行 — 4 frames + 1 identity core
 668622d tune: similarity_threshold 0.75→0.55，conviction 14→132 筆
 014360d perf: query_engine 改用 ChromaDB 索引加速 + 更新全部文件
 4cfb62c refactor: 更新遷移工具支援新版 signal 格式 + 全量重建資料
 1598fd3 feat: Phase 2 核心完成 — frame_clusterer + identity_scanner + query_engine
-3906fa3 docs: 重寫 CLAUDE.md — 定義閉環控制系統架構 + CyberLoop 概念對照 + Phase 路線圖
 6c5d468 fix: 修復 P0-P2 已知問題 — 幻覺過濾、歷史跳過、矛盾信心、trace 去重
 8b2831b feat: Phase 1 完成 — conviction detection + trace extraction + claude_code backend
 ef217e1 feat: Phase 0 完成 — 引擎基礎框架 + atoms 遷移工具
