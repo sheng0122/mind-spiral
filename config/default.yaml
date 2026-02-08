@@ -2,7 +2,7 @@
 
 engine:
   data_dir: ./data                    # 資料根目錄
-  llm_backend: local                  # local | cloud
+  llm_backend: claude_code             # local | cloud | claude_code
 
   # Conviction Detection
   conviction:
