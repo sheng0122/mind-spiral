@@ -13,6 +13,39 @@ context: shifu-context/projects/mind-spiral.md
 
 **這是引擎專案，不是某個人的資料庫。** 每個使用者（如 Joey、Alice）是一個 instance，資料獨立，引擎共用。
 
+## 系統本質：閉環控制系統
+
+Mind Spiral 不只是「被動觀察」——它是一個**閉環控制系統**，有明確的目標和航向：
+
+### 三個控制迴圈
+
+```
+迴圈 1：螺旋回饋（conviction calibration）
+  決策 → 追蹤 → outcome 回來 → conviction strength 調整
+  目標：讓 conviction 的 strength 越來越準確反映現實
+
+迴圈 2：一致性維護（contradiction detection）
+  新 conviction 出現 → 比對既有 convictions → 偵測矛盾/演化
+  目標：維護認知模型的內部一致性
+
+迴圈 3：查詢導航（query engine）
+  問題進來 → frame matching → conviction activation → 推理 → 回應
+  目標：在五層資料中找到正確的信念+推理組合，生成「像這個人」的回答
+```
+
+### 參考架構：CyberLoop (AICL)
+
+[CyberLoop](https://github.com/roackb2/cyberloop) 是一個 AI Agent 控制框架，用控制理論（PID 控制器 + 卡爾曼濾波器）讓 Agent 在向量空間中導航時不偏航。其核心概念可直接應用於 Mind Spiral 的三個場景：
+
+| CyberLoop 概念 | Mind Spiral 應用場景 | Phase |
+|---|---|---|
+| **航向保持**（角偏差偵測） | Query Engine 在五層資料導航時，防止回答偏離 identity | Phase 3 |
+| **PID 修正力**（比例/積分/微分） | 螺旋回饋中 conviction strength 的調整力道應動態計算，而非固定 ±0.05 | Phase 3 |
+| **反射系統**（Line-of-Sight） | Frame matching 時，關鍵字直接命中 trigger_patterns → 跳過 LLM 推理 | Phase 3 |
+| **雙速架構**（便宜內迴圈 + 貴外迴圈） | Signal 預過濾用 embedding 數學，深度分析才呼叫 LLM | Phase 2 |
+| **漂移偵測**（向量方向變化） | 追蹤 conviction embedding 隨時間的方向變化，偵測信念漂移 | Phase 2 |
+| **守衛系統**（防重複繞圈） | 偵測 reasoning trace 的重複 pattern，識別思維慣性 vs 舒適圈 | Phase 3 |
+
 ## 與 16_moltbot_joey 的關係
 
 ```
@@ -30,6 +63,7 @@ Joey 是 Mind Spiral 的第一個使用者。16 的 `process_*.py` 負責把 Joe
 ├── README.md                    ← 專案說明
 ├── PRD.md                       ← 產品需求文件
 ├── MIND_SPIRAL.md               ← 五層架構設計文件
+├── HANDOFF.md                   ← 交接文件（含數據現況）
 ├── schemas/                     ← 五層 JSON Schema（multi-tenant）
 │   ├── signal.json              ← Layer 1: 信號
 │   ├── conviction.json          ← Layer 2: 信念
@@ -40,37 +74,62 @@ Joey 是 Mind Spiral 的第一個使用者。16 的 `process_*.py` 負責把 Joe
 │   ├── __init__.py
 │   ├── config.py                ← 設定管理（LLM、儲存路徑）
 │   ├── models.py                ← 資料模型（Pydantic）
-│   ├── signal_store.py          ← Layer 1 CRUD
-│   ├── conviction_detector.py   ← Layer 2 共鳴偵測
-│   ├── trace_extractor.py       ← Layer 3 推理軌跡提取
-│   ├── frame_clusterer.py       ← Layer 4 情境框架聚類
-│   ├── identity_scanner.py      ← Layer 5 身份偵測
-│   ├── query_engine.py          ← OpenClaw 查詢（五層感知）
-│   ├── daily_digest.py          ← 每日早晨整理生成
-│   ├── contradiction_alert.py   ← 矛盾偵測通知
-│   ├── decision_tracker.py      ← 決策追蹤佇列
-│   └── llm.py                   ← LLM 抽象層
-├── browser-ext/                 ← Chrome 擴充套件
-│   ├── manifest.json
-│   ├── background.js            ← 背景服務（搜尋/點擊/停留追蹤）
-│   ├── content.js               ← 內容腳本（畫線偵測）
-│   └── popup.html               ← 極簡設定頁面
+│   ├── llm.py                   ← LLM 抽象層（local/cloud/claude_code + batch）
+│   ├── cli.py                   ← CLI 入口
+│   ├── signal_store.py          ← Layer 1 CRUD + ChromaDB
+│   ├── conviction_detector.py   ← Layer 2 共鳴偵測 + 幻覺過濾
+│   ├── trace_extractor.py       ← Layer 3 推理軌跡提取（v2 分組模式）
+│   ├── contradiction_alert.py   ← 矛盾偵測 + LLM 信心過濾
+│   ├── decision_tracker.py      ← 決策追蹤 + outcome 螺旋回饋
+│   └── daily_batch.py           ← 每日/每週 orchestrator
+├── browser-ext/                 ← Chrome 擴充套件（Phase 2）
 ├── line-bot/                    ← LINE Bot（主動觸碰出口）
-│   ├── app.py                   ← FastAPI webhook
-│   ├── messages.py              ← 訊息模板（早晨整理/矛盾/追蹤/週報）
-│   └── scheduler.py             ← 推送排程
-├── config/                      ← 預設設定
+├── config/
 │   └── default.yaml             ← 預設引擎參數
 └── tests/
 ```
 
+## 開發路線圖
+
+### Phase 0 — 基礎建設 ✅
+
+五層 schema、Pydantic models、config、LLM 抽象層、signal_store CRUD、Joey atoms 遷移。
+
+### Phase 1 — 核心螺旋 ✅
+
+conviction detection（embedding 聚類 + 五種共鳴 + 幻覺過濾）、trace extraction（v2 分組模式）、decision tracker（outcome 螺旋回饋）、contradiction alert（cosine + LLM 信心過濾）、daily batch orchestrator。
+
+**Joey 數據現況**：2,737 signals → 46 convictions → 392 traces
+
+### Phase 2 — 被動擷取 + 增量優化
+
+| 項目 | 說明 | 控制理論概念 |
+|------|------|---|
+| 瀏覽器插件（搜尋/點擊/停留/畫線） | 最強的 input signal 來源 | — |
+| 搜尋鏈偵測 | 連續搜尋 = 探索路徑 = reasoning trace 原始素材 | — |
+| Signal 預過濾 | ingest 時用 embedding 相似度快篩：近似已知 conviction 的直接 +reinforcement，重複度太高的標記 redundant | **雙速架構**（便宜過濾） |
+| Conviction 增量更新 | 新 signal 進來時增量比對，不用每次全量 detect | **雙速架構**（增量內迴圈） |
+| 信念漂移偵測 | 定期重算 conviction embedding，方向變化 > 閾值 → 警報 | **漂移偵測** |
+
+### Phase 3 — 數位分身（閉環控制）
+
+| 項目 | 說明 | 控制理論概念 |
+|------|------|---|
+| frame_clusterer.py | 從 traces 聚類情境框架（Layer 4） | — |
+| identity_scanner.py | 跨 frame 覆蓋率篩選（Layer 5） | — |
+| query_engine.py | 五層感知 RAG：問題 → frame → conviction → trace → 回應 | **航向保持**（回答不偏離 identity） |
+| Frame 反射匹配 | 關鍵字命中 trigger_patterns → 跳過 LLM 直接激活 frame | **反射系統** |
+| 動態 strength 調整 | outcome 回饋時根據累積趨勢動態計算調整量，取代固定 ±0.05 | **PID 控制** |
+| Trace 連貫性分數 | 相鄰 trace 的推理風格穩定度 → 思維慣性 vs 轉變訊號 | **守衛系統** |
+| Identity 約束檢查 | 生成回應前檢查是否違反 identity core → 違反則回溯修正 | **航向保持** |
+
+### Phase 4 — 多人 + 產品化
+
+Onboarding 流程、第二個使用者上線、信念演變視覺化、Web dashboard。
+
 ## Multi-tenant 設計
 
 每個使用者一個 `owner_id`，所有五層資料都帶 `owner_id`。
-
-資料隔離方式：
-- **本地模式**：每個使用者一個子目錄 `data/{owner_id}/`
-- **雲端模式**：資料庫查詢帶 `owner_id` 過濾
 
 ```
 data/
@@ -91,40 +150,39 @@ data/
 cd 18-mind-spiral
 pip install -e .
 
-# 引擎操作
-mind-spiral ingest --owner joey --source transcript.txt --type daily
-mind-spiral detect --owner joey          # 執行 conviction detection
-mind-spiral cluster --owner joey         # 執行 frame clustering
-mind-spiral scan --owner joey            # 執行 identity detection
-mind-spiral query --owner joey --caller alice --question "定價怎麼看？"
-mind-spiral digest --owner joey          # 生成每日早晨整理
-mind-spiral stats --owner joey           # 各層統計
+# 日常操作
+mind-spiral stats --owner joey
+mind-spiral detect --owner joey          # conviction detection
+mind-spiral extract --owner joey --limit 10  # trace extraction
+mind-spiral followups --owner joey       # 待追蹤決策
+mind-spiral outcome --owner joey --trace-id xxx --result positive --note "成效不錯"
+mind-spiral daily --owner joey           # 每日整理
+mind-spiral weekly --owner joey          # 每週報告
+
+# 全量跑
+uv run python run_full_extract.py
 
 # LINE Bot
-cd line-bot
-uvicorn app:app --reload
+cd line-bot && uvicorn app:app --reload
 
-# 瀏覽器插件
-cd browser-ext
-# 在 Chrome 載入未封裝的擴充功能
+# 瀏覽器插件：在 Chrome 載入 browser-ext/ 未封裝的擴充功能
 ```
 
-## 依賴
+## LLM Backend
 
-```
-anthropic          # 目前 LLM（之後改 OpenAI-compatible）
-pydantic           # 資料模型驗證
-chromadb           # 本地向量搜尋
-fastapi            # LINE Bot + API
-uvicorn            # ASGI server
-line-bot-sdk       # LINE Messaging API
-pyyaml             # 設定檔
-```
+| Backend | 設定 | 用途 |
+|---------|------|------|
+| `local` | Ollama localhost:11434 | 本地免費，需啟動 Ollama |
+| `cloud` | Cloudflare AI Gateway | 未設定 |
+| `claude_code` | Agent SDK + 訂閱認證 | **目前主力**，不需 API key |
 
-環境變數：
+`batch_llm()` 在 `claude_code` 模式下透過 `asyncio.Semaphore(5)` 並行處理。
+
+## 環境變數
+
 - `MIND_SPIRAL_DATA_DIR` — 資料根目錄（預設 `./data`）
 - `LLM_BACKEND` — `local` | `cloud`
-- `ANTHROPIC_API_KEY` — 目前用
+- `ANTHROPIC_API_KEY` — cloud 模式用
 - `LINE_CHANNEL_ACCESS_TOKEN` — LINE Bot
 - `LINE_CHANNEL_SECRET` — LINE Bot
 
@@ -135,3 +193,4 @@ pyyaml             # 設定檔
 - Schema 設計見 `schemas/` 目錄，Pydantic 模型見 `engine/models.py`
 - 引擎是純 Python library，不依賴任何 web framework
 - LINE Bot 和瀏覽器插件是獨立的介面層，透過引擎 API 操作
+- Phase 3 實作 query_engine 時，需引入向量空間導航控制（參考 CyberLoop AICL 架構）
