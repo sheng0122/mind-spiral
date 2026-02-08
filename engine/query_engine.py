@@ -319,6 +319,99 @@ def _build_response_prompt(ctx: QueryContext) -> str:
 - 可以引用自己過去的推理邏輯作為佐證"""
 
 
+def _build_generation_prompt(ctx: QueryContext, output_type: str, extra_instructions: str) -> str:
+    """組裝 generation mode 的 prompt。"""
+    # 信念
+    conviction_lines = []
+    for c in ctx.activated_convictions:
+        conviction_lines.append(f"- {c.statement}（strength: {c.strength.score}）")
+    convictions_text = "\n".join(conviction_lines) if conviction_lines else "（無特定信念激活）"
+
+    # 推理軌跡範例（generation 用更多）
+    trace_lines = []
+    for t in ctx.relevant_traces[:5]:
+        steps = " → ".join(s.action for s in t.reasoning_path.steps)
+        trace_lines.append(
+            f"- 情境：{t.trigger.situation}\n"
+            f"  推理：{steps}（{t.reasoning_path.style}）\n"
+            f"  結論：{t.conclusion.decision}"
+        )
+    traces_text = "\n".join(trace_lines) if trace_lines else "（無相關推理軌跡）"
+
+    # Identity 護欄
+    identity_lines = [f"- {i.core_belief}" for i in ctx.identity_constraints]
+    identity_text = "\n".join(identity_lines) if identity_lines else "（無 identity 約束）"
+
+    # Frame 資訊
+    frame_info = ""
+    if ctx.matched_frame:
+        f = ctx.matched_frame
+        frame_info = f"情境框架：{f.name}\n描述：{f.description}\n"
+        if f.voice and f.voice.tone:
+            frame_info += f"語氣：{f.voice.tone}\n"
+        if f.voice and f.voice.typical_phrases:
+            frame_info += f"常用句式：{', '.join(f.voice.typical_phrases)}\n"
+        if f.voice and f.voice.avoids:
+            frame_info += f"避免：{', '.join(f.voice.avoids)}\n"
+        if f.reasoning_patterns.preferred_style:
+            frame_info += f"推理風格：{f.reasoning_patterns.preferred_style}\n"
+
+    # 根據 output_type 設定格式指引
+    type_guides = {
+        "article": (
+            "寫一篇完整文章。結構要有吸引人的開頭（用故事、問題或反直覺觀點切入）、"
+            "有邏輯的中段（用信念和推理軌跡展開論述，穿插個人經驗和具體案例）、"
+            "有力的結尾（回扣核心信念，給讀者明確行動方向）。"
+            "長度：800-1500 字。"
+        ),
+        "post": (
+            "寫一則社群貼文。開頭要有鉤子（一句話抓住注意力），"
+            "中間用短句、分段，保持節奏感，結尾帶 call to action 或引發討論。"
+            "長度：200-400 字。"
+        ),
+        "decision": (
+            "針對這個決策情境，用這個人的推理方式做分析。"
+            "列出核心考量、用信念和推理風格權衡選項，給出明確建議和下一步行動。"
+            "長度：300-600 字。"
+        ),
+        "script": (
+            "寫一段短影音腳本。開頭 3 秒要有吸引力的 hook，"
+            "中間用口語化表達，節奏快，每段一個重點，"
+            "結尾帶 CTA（按讚、留言、追蹤）。"
+            "長度：200-400 字，標註分段和預估秒數。"
+        ),
+    }
+    format_guide = type_guides.get(output_type, type_guides["article"])
+
+    extra_block = f"\n額外要求：{extra_instructions}" if extra_instructions else ""
+
+    return f"""你現在要用一個人的思維方式和風格來產出內容。
+
+{frame_info}
+
+這個人的核心信念：
+{convictions_text}
+
+這個人不可違反的身份核心：
+{identity_text}
+
+這個人在類似情境下的推理範例：
+{traces_text}
+
+任務：{ctx.question}
+
+輸出格式：{format_guide}
+{extra_block}
+
+要求：
+- 用第一人稱「我」撰寫
+- 內容必須反映上述信念和推理風格，不是泛泛而談的通用文
+- 不能違反身份核心中的任何信念
+- 語氣要符合情境框架的設定
+- 要有這個人的個人特色：用詞習慣、常用句式、思考方式
+- 論點要具體，用推理軌跡中的邏輯和案例佐證，不要空泛"""
+
+
 # ─── 主入口 ───
 
 
@@ -383,6 +476,118 @@ def query(
 
     return {
         "response": ctx.response,
+        "matched_frame": ctx.matched_frame.name if ctx.matched_frame else None,
+        "match_method": ctx.match_method,
+        "activated_convictions": [c.statement for c in ctx.activated_convictions],
+        "relevant_traces": len(ctx.relevant_traces),
+        "identity_constraints": [i.core_belief for i in ctx.identity_constraints],
+    }
+
+
+def _classify_intent(text: str) -> dict:
+    """用關鍵字快速判斷意圖：query vs generate + output_type。"""
+    t = text.lower()
+
+    # 明確產出指令
+    gen_signals = {
+        "script": ["腳本", "script", "短影音腳本", "影片腳本"],
+        "article": ["寫一篇", "幫我寫", "寫文章", "寫文", "撰寫", "產出文章", "寫稿"],
+        "post": ["貼文", "發文", "社群貼文", "po文", "fb貼文", "ig貼文", "threads"],
+        "decision": ["幫我決定", "該選哪個", "怎麼選", "決策分析", "幫我分析要不要"],
+    }
+
+    for output_type, keywords in gen_signals.items():
+        for kw in keywords:
+            if kw in t:
+                return {"mode": "generate", "output_type": output_type}
+
+    # 預設 query
+    return {"mode": "query", "output_type": None}
+
+
+def ask(
+    owner_id: str,
+    text: str,
+    caller: str | None = None,
+    config: dict | None = None,
+) -> dict:
+    """統一入口 — 自動判斷 query 或 generate，路由到對應模式。"""
+    intent = _classify_intent(text)
+
+    if intent["mode"] == "generate":
+        result = generate(owner_id, text, output_type=intent["output_type"],
+                          caller=caller, config=config)
+        result["mode"] = "generate"
+        return result
+    else:
+        result = query(owner_id, text, caller=caller, config=config)
+        result["mode"] = "query"
+        return result
+
+
+def generate(
+    owner_id: str,
+    task: str,
+    output_type: str = "article",
+    extra_instructions: str = "",
+    caller: str | None = None,
+    config: dict | None = None,
+) -> dict:
+    """Generation Mode — 用五層思維模型產出內容或做決策。
+
+    output_type: article | post | decision | script
+    """
+    from engine.config import load_config
+    cfg = config or load_config()
+    owner_dir = get_owner_dir(cfg, owner_id)
+    store = SignalStore(cfg, owner_id)
+
+    ctx = QueryContext(question=task, caller=caller)
+
+    # 載入各層資料（同 query）
+    frames = _load_frames(owner_dir)
+    active_frames = [f for f in frames if f.lifecycle and f.lifecycle.status == "active"]
+    convictions = _load_convictions(owner_dir)
+    conviction_map = {c.conviction_id: c for c in convictions}
+    traces = _load_traces(owner_dir)
+    identities = _load_identity(owner_dir)
+
+    # Step 1: Frame Matching
+    matched = _reflex_match(task, active_frames)
+    if matched:
+        ctx.matched_frame = matched
+        ctx.match_method = "reflex"
+    else:
+        matched = _embedding_match_frame(task, active_frames, store, owner_id, owner_dir)
+        if matched:
+            ctx.matched_frame = matched
+            ctx.match_method = "embedding"
+
+    # Step 2: Conviction Activation
+    if ctx.matched_frame:
+        for ca in ctx.matched_frame.conviction_profile.primary_convictions:
+            conv = conviction_map.get(ca.conviction_id)
+            if conv:
+                ctx.activated_convictions.append(conv)
+    else:
+        sorted_convictions = sorted(convictions, key=lambda c: -c.strength.score)
+        ctx.activated_convictions = sorted_convictions[:7]
+
+    # Step 3: Trace Retrieval（generation 用更多 traces）
+    ctx.relevant_traces = _find_relevant_traces(
+        task, ctx.matched_frame, traces, store, owner_id, owner_dir, limit=8,
+    )
+
+    # Step 4: Identity Check
+    ctx.identity_constraints = identities
+
+    # Step 5: Generation
+    prompt = _build_generation_prompt(ctx, output_type, extra_instructions)
+    ctx.response = call_llm(prompt, config=cfg)
+
+    return {
+        "content": ctx.response,
+        "output_type": output_type,
         "matched_frame": ctx.matched_frame.name if ctx.matched_frame else None,
         "match_method": ctx.match_method,
         "activated_convictions": [c.statement for c in ctx.activated_convictions],

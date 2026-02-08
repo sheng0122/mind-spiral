@@ -286,5 +286,62 @@ def query_cmd(owner: str, caller: str | None, question: str):
     click.echo(f"  身份約束: {len(result['identity_constraints'])} 個")
 
 
+@cli.command(name="ask")
+@click.option("--owner", required=True, help="使用者 ID")
+@click.option("--caller", default=None, help="提問者身份")
+@click.argument("text")
+def ask_cmd(owner: str, caller: str | None, text: str):
+    """統一入口 — 自動判斷要回答問題還是產出內容"""
+    from engine.query_engine import ask as run_ask
+
+    config = load_config()
+    click.echo(f"[{owner}] 思考中...")
+    result = run_ask(owner, text, caller=caller, config=config)
+
+    mode = result.get("mode", "query")
+    if mode == "generate":
+        click.echo(f"\n--- 產出內容（{result['output_type']}）---")
+        click.echo(result["content"])
+    else:
+        click.echo(f"\n--- 回應 ---")
+        click.echo(result["response"])
+
+    click.echo(f"\n--- 資訊 ---")
+    click.echo(f"  模式: {mode}")
+    click.echo(f"  匹配 frame: {result['matched_frame'] or '無'}（{result['match_method'] or 'N/A'}）")
+    click.echo(f"  激活信念: {len(result['activated_convictions'])} 個")
+    for c in result["activated_convictions"][:3]:
+        click.echo(f"    - {c[:60]}")
+    click.echo(f"  參考軌跡: {result['relevant_traces']} 個")
+
+
+@cli.command(name="generate")
+@click.option("--owner", required=True, help="使用者 ID")
+@click.option("--type", "output_type", default="article",
+              type=click.Choice(["article", "post", "decision", "script"]),
+              help="產出類型")
+@click.option("--caller", default=None, help="提問者身份")
+@click.option("--extra", default="", help="額外指示")
+@click.argument("task")
+def generate_cmd(owner: str, output_type: str, caller: str | None, extra: str, task: str):
+    """用五層思維模型產出內容（文章/貼文/決策/腳本）"""
+    from engine.query_engine import generate as run_generate
+
+    config = load_config()
+    click.echo(f"[{owner}] 五層感知 generation（{output_type}）...")
+    result = run_generate(owner, task, output_type=output_type,
+                          extra_instructions=extra, caller=caller, config=config)
+
+    click.echo(f"\n--- 產出內容（{result['output_type']}）---")
+    click.echo(result["content"])
+    click.echo(f"\n--- 生成資訊 ---")
+    click.echo(f"  匹配 frame: {result['matched_frame'] or '無'}（{result['match_method'] or 'N/A'}）")
+    click.echo(f"  激活信念: {len(result['activated_convictions'])} 個")
+    for c in result["activated_convictions"][:3]:
+        click.echo(f"    - {c[:60]}")
+    click.echo(f"  參考軌跡: {result['relevant_traces']} 個")
+    click.echo(f"  身份約束: {len(result['identity_constraints'])} 個")
+
+
 if __name__ == "__main__":
     cli()
