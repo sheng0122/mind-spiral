@@ -84,7 +84,7 @@ Joey 是 Mind Spiral 的第一個使用者。16 的 `process_*.py` 負責把 Joe
 │   ├── daily_batch.py           ← 每日/每週 orchestrator
 │   ├── frame_clusterer.py       ← Layer 4 情境框架聚類
 │   ├── identity_scanner.py      ← Layer 5 身份核心掃描
-│   └── query_engine.py          ← 五層感知 RAG（反射匹配 + embedding）
+│   └── query_engine.py          ← 五層感知 RAG + Generation Mode + ask 統一入口
 ├── browser-ext/                 ← Chrome 擴充套件（Phase 2）
 ├── line-bot/                    ← LINE Bot（主動觸碰出口）
 ├── config/
@@ -113,6 +113,8 @@ conviction detection（embedding 聚類 + 五種共鳴 + 幻覺過濾）、trace
 | frame_clusterer.py | 從 traces 聚類情境框架（Layer 4） | ✅ |
 | identity_scanner.py | 跨 frame 覆蓋率篩選（Layer 5） | ✅ |
 | query_engine.py | 五層感知 RAG + 反射匹配 + ChromaDB 索引加速 | ✅ |
+| generation mode | generate() 產出內容（article/post/script/decision） | ✅ |
+| ask 統一入口 | 自動判斷 query vs generate，關鍵字路由 | ✅ |
 | Signal 預過濾 | ingest 時用 embedding 快篩，增量 conviction 更新 | 待做 |
 | 信念漂移偵測 | 定期重算 conviction embedding，方向變化 > 閾值 → 警報 | 待做 |
 | 動態 strength 調整 | outcome 回饋時根據累積趨勢動態計算，取代固定 ±0.05（PID） | 待做 |
@@ -162,8 +164,16 @@ mind-spiral weekly --owner joey          # 每週報告
 mind-spiral cluster --owner joey         # 聚類情境框架（Layer 4）
 mind-spiral scan-identity --owner joey   # 掃描身份核心（Layer 5）
 mind-spiral build-index --owner joey     # 建立向量索引（加速查詢，一次性）
-mind-spiral query --owner joey "定價怎麼看？"  # 五層感知查詢
-mind-spiral query --owner joey --caller alice "定價怎麼看？"  # 帶提問者身份
+
+# 數位分身互動（推薦用 ask 統一入口）
+mind-spiral ask --owner joey "定價怎麼看？"                    # 自動判斷 → query
+mind-spiral ask --owner joey "幫我寫一篇關於創業的短影音腳本"    # 自動判斷 → generate(script)
+mind-spiral query --owner joey "定價怎麼看？"                  # 直接 query（回答問題）
+mind-spiral query --owner joey --caller alice "定價怎麼看？"   # 帶提問者身份
+mind-spiral generate --owner joey --type article "寫一篇關於行動力的文章"  # 直接 generate
+mind-spiral generate --owner joey --type script "短影音：怎麼學 AI"       # 短影音腳本
+mind-spiral generate --owner joey --type post "社群貼文：資訊密度"         # 社群貼文
+mind-spiral generate --owner joey --type decision "該不該換工作？"         # 決策分析
 
 # 全量跑
 uv run python run_full_extract.py
