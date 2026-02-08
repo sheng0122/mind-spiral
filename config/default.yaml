@@ -22,6 +22,11 @@ engine:
       personnel_days: 30              # 人事決策回訪天數
       backfill_cutoff_date: "2026-02-09"  # 早於此日期的歷史 trace 不進入追蹤佇列
 
+  # Frame Clustering
+  frame:
+    similarity_threshold: 0.55        # trace 語義相似度門檻
+    min_traces: 5                     # 至少幾個 traces 才建立 frame
+
   # Contradiction Detection
   contradiction:
     min_confidence: 7                 # LLM 信心分數 < 此值的矛盾判定會被過濾
