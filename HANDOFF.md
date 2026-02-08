@@ -2,7 +2,7 @@
 
 ## 當前狀態
 
-Phase 0-2 完成。五層架構全部有 Joey 實際數據，端到端 pipeline 已驗證。
+Phase 0-2 完成。五層架構全部有 Joey 實際數據，端到端 pipeline 已驗證。Generation mode 上線，數位分身可產出內容（文章/貼文/腳本/決策）。
 
 ## 數據現況（Joey）
 
@@ -51,7 +51,7 @@ v2 改用 trace 語義特徵 embedding 聚類，不再按字面 context 分組�
 
 ```
 engine/
-├── cli.py                    ← CLI（detect/extract/cluster/scan-identity/build-index/query/...）
+├── cli.py                    ← CLI（ask/query/generate/detect/extract/cluster/scan-identity/build-index/...）
 ├── config.py                 ← 設定管理
 ├── llm.py                    ← LLM 抽象層（local/cloud/claude_code + batch_llm 並行）
 ├── models.py                 ← 五層 Pydantic models
@@ -60,7 +60,7 @@ engine/
 ├── trace_extractor.py        ← Layer 3：按 (date, context) 分組提取 + 分組級去重
 ├── frame_clusterer.py        ← Layer 4：trace 語義 embedding 聚類（v2）+ LLM 生成 metadata
 ├── identity_scanner.py       ← Layer 5：跨 frame 覆蓋率篩選 + LLM 生成 expressions
-├── query_engine.py           ← 五層感知 RAG（反射匹配 + ChromaDB 索引 + identity 檢查）
+├── query_engine.py           ← 五層感知 RAG + Generation Mode + ask 統一入口
 ├── decision_tracker.py       ← 決策追蹤 + outcome 螺旋回饋 + 歷史跳過
 ├── contradiction_alert.py    ← 矛盾偵測 + LLM 信心分數過濾
 └── daily_batch.py            ← 每日/每週 orchestrator
@@ -85,13 +85,32 @@ config/default.yaml           ← claude_code backend + 防護設定
 - 用 LLM 生成每個 identity 在不同 frame 下的表現描述
 - 自動設定 non_negotiable（strength >= 0.9）
 
-### query_engine.py（五層感知 RAG）
+### query_engine.py（五層感知 RAG + Generation Mode）
 - **反射匹配**：關鍵字命中 trigger_patterns → 跳過 embedding，< 1ms
 - **embedding 匹配**：用 ChromaDB 索引找最相關的 frame
 - **trace 檢索**：用 ChromaDB 索引找最相關的推理軌跡（不再逐一算 embedding）
 - **identity 檢查**：把 identity core 作為回應生成的護欄
 - **build_index()**：一次性預建 trace/frame 的 embedding 索引，查詢時只算一次問題 embedding
 - Fallback 設計：索引不存在時用 historical_traces 或最近 traces，不會卡住
+
+#### Generation Mode（新增）
+- **generate()**：用五層思維模型產出完整內容，支援四種 output_type：
+  - `article`：800-1500 字完整文章（故事開頭 + 信念論述 + 行動結尾）
+  - `post`：200-400 字社群貼文（鉤子 + 短句節奏 + CTA）
+  - `script`：200-400 字短影音腳本（Hook + 痛點 + 方法 + CTA，標註秒數）
+  - `decision`：300-600 字決策分析（核心考量 + 信念權衡 + 明確建議）
+- 與 query 共用五層感知流程，但 generation 用更多 traces（8 vs 5）和更豐富的 prompt
+- **ask()**：統一入口，用 `_classify_intent()` 關鍵字自動路由 query 或 generate
+  - 「寫一篇」「幫我寫」「撰寫」→ article
+  - 「腳本」→ script
+  - 「貼文」「發文」→ post
+  - 「幫我決定」「該選哪個」→ decision
+  - 其餘 → query
+
+#### 測試結果（2026-02-09）
+- query 測試：定價/帶團隊/短影音 三題全通過，frame 分流正確
+- generate 測試：article（~1200 字）、script（~280 字 x 3 支）品質驗證通過
+- ask 自動路由：問句 → query、「幫我寫腳本」→ generate(script) 正確分流
 
 ## LLM Backend
 
@@ -105,7 +124,9 @@ config/default.yaml           ← claude_code backend + 防護設定
 
 ### 立即可做
 - [x] 用 Joey 資料跑一次完整流程：`cluster` → `scan-identity`（已完成）
-- [ ] `build-index` → `query` 驗證五層感知查詢品質
+- [x] `build-index` → `query` 驗證五層感知查詢品質（已完成）
+- [x] Generation Mode — 數位分身可產出文章/貼文/腳本/決策（已完成）
+- [x] `ask` 統一入口 — 自動判斷 query vs generate（已完成）
 
 ### Phase 2 剩餘
 - [ ] Signal 預過濾（ingest 時 embedding 快篩，增量 conviction 更新）
@@ -127,7 +148,10 @@ config/default.yaml           ← claude_code backend + 防護設定
 mind-spiral cluster --owner joey         # 聚類情境框架（Layer 4）
 mind-spiral scan-identity --owner joey   # 掃描身份核心（Layer 5）
 mind-spiral build-index --owner joey     # 建立向量索引（加速查詢）
-mind-spiral query --owner joey "定價怎麼看？"  # 五層感知查詢
+mind-spiral ask --owner joey "定價怎麼看？"        # 統一入口（自動判斷 query）
+mind-spiral ask --owner joey "幫我寫一篇短影音腳本"  # 統一入口（自動判斷 generate）
+mind-spiral query --owner joey "定價怎麼看？"        # 直接 query
+mind-spiral generate --owner joey --type script "短影音腳本主題"  # 直接 generate
 
 # 日常操作
 mind-spiral stats --owner joey
@@ -147,6 +171,8 @@ uv run python migrate_atoms.py --atoms /path/to/atoms.jsonl --owner joey
 ## Git log
 
 ```
+5f54763 feat: generation mode + ask 統一入口 — 數位分身可產出內容和做決策
+056828d docs: 更新 HANDOFF — frame_clusterer v2 語義聚類 + 五層完整數據
 7abd6ee refactor: frame_clusterer v2 — 語義聚類取代字面 context 分組
 a1f9f20 feat: Layer 4/5 首次執行 — 4 frames + 1 identity core
 668622d tune: similarity_threshold 0.75→0.55，conviction 14→132 筆
