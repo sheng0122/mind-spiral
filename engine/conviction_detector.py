@@ -182,9 +182,47 @@ def _save_convictions(owner_dir: Path, convictions: list[Conviction]) -> None:
             f.write(c.model_dump_json() + "\n")
 
 
-def _compute_strength(resonance_count: int, signal_count: int) -> ConvictionStrength:
-    """根據共鳴數和 signal 數計算 strength。"""
+def _compute_authority_weight(signals: list[Signal]) -> float:
+    """根據 signals 的 authority 計算加權乘數。"""
+    weights = {"first_person": 1.0, "second_person": 0.8, "third_party": 0.6}
+    if not signals:
+        return 1.0
+    total = sum(weights.get(s.authority, 0.8) for s in signals)
+    return total / len(signals)
+
+
+def _has_cross_direction(signals: list[Signal]) -> bool:
+    """檢查 signals 是否同時有 input 和 output。"""
+    has_input = any(s.direction == "input" for s in signals)
+    has_output = any(s.direction == "output" for s in signals)
+    return has_input and has_output
+
+
+def _compute_strength(
+    resonance_count: int,
+    signal_count: int,
+    signals: list[Signal] | None = None,
+) -> ConvictionStrength:
+    """根據共鳴數、signal 數、authority 加權和 cross-direction 驗證計算 strength。
+
+    規則：
+    - 基礎分 = resonance_count * 0.15 + signal_count * 0.05
+    - authority 加權：first_person ×1.0, second_person ×0.8, third_party ×0.6
+    - cross-direction 門檻：只有 output 沒有 input 的 conviction，cap 在 developing（≤0.5）
+    """
     score = min(1.0, (resonance_count * 0.15 + signal_count * 0.05))
+
+    if signals:
+        # Authority 加權
+        auth_weight = _compute_authority_weight(signals)
+        score = score * auth_weight
+
+        # Cross-direction 門檻：只有單方向 → cap 在 0.5
+        if not _has_cross_direction(signals):
+            score = min(score, 0.5)
+
+    score = round(min(1.0, score), 2)
+
     if score >= 0.8:
         level = "core"
     elif score >= 0.6:
@@ -194,7 +232,7 @@ def _compute_strength(resonance_count: int, signal_count: int) -> ConvictionStre
     else:
         level = "emerging"
     return ConvictionStrength(
-        score=round(score, 2),
+        score=score,
         level=level,
         trend="strengthening",
         last_computed=datetime.now().strftime("%Y-%m-%d"),
@@ -294,7 +332,7 @@ def detect(owner_id: str, config: dict) -> list[Conviction]:
 
         if matched_existing:
             # 更新既有 conviction 的 strength
-            matched_existing.strength = _compute_strength(resonance_count, len(cluster_signals))
+            matched_existing.strength = _compute_strength(resonance_count, len(cluster_signals), cluster_signals)
             matched_existing.resonance_evidence = evidence
             if matched_existing.lifecycle:
                 matched_existing.lifecycle.last_reinforced = today
@@ -308,7 +346,7 @@ def detect(owner_id: str, config: dict) -> list[Conviction]:
                 owner_id=owner_id,
                 conviction_id=f"conv_{uuid.uuid4().hex[:8]}",
                 statement=statement,
-                strength=_compute_strength(resonance_count, len(cluster_signals)),
+                strength=_compute_strength(resonance_count, len(cluster_signals), cluster_signals),
                 domains=_extract_domains(cluster_signals),
                 resonance_evidence=evidence,
                 lifecycle=ConvictionLifecycle(
@@ -319,8 +357,42 @@ def detect(owner_id: str, config: dict) -> list[Conviction]:
             )
             new_convictions.append(conviction)
 
-    # 合併並儲存
+    # 全量重算所有 conviction 的 strength（套用 cross-direction + authority 新規則）
     all_convictions = existing + new_convictions
+    for conv in all_convictions:
+        # 收集這個 conviction 關聯的 signal IDs
+        sig_ids: set[str] = set()
+        if conv.resonance_evidence:
+            re = conv.resonance_evidence
+            if re.input_output_convergence:
+                for ioc in re.input_output_convergence:
+                    sig_ids.add(ioc.input_signal)
+                    sig_ids.add(ioc.output_signal)
+            if re.temporal_persistence:
+                for tp in re.temporal_persistence:
+                    sig_ids.update(tp.signal_ids)
+            if re.cross_context_consistency:
+                for ccc in re.cross_context_consistency:
+                    sig_ids.update(ccc.signal_ids)
+            if re.spontaneous_mentions:
+                for sm in re.spontaneous_mentions:
+                    sig_ids.add(sm.signal_id)
+            if re.action_alignment:
+                for aa in re.action_alignment:
+                    sig_ids.add(aa.statement_signal)
+                    sig_ids.add(aa.action_signal)
+
+        conv_signals = [signal_map[sid] for sid in sig_ids if sid in signal_map]
+        if conv_signals:
+            resonance_count = sum(1 for x in [
+                conv.resonance_evidence.input_output_convergence if conv.resonance_evidence else None,
+                conv.resonance_evidence.temporal_persistence if conv.resonance_evidence else None,
+                conv.resonance_evidence.cross_context_consistency if conv.resonance_evidence else None,
+                conv.resonance_evidence.spontaneous_mentions if conv.resonance_evidence else None,
+                conv.resonance_evidence.action_alignment if conv.resonance_evidence else None,
+            ] if x)
+            conv.strength = _compute_strength(resonance_count, len(conv_signals), conv_signals)
+
     _save_convictions(owner_dir, all_convictions)
 
     return new_convictions
