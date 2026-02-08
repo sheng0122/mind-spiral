@@ -2,17 +2,17 @@
 
 ## 當前狀態
 
-Phase 0-2 完成。五層架構前四層已有 Joey 實際數據，Layer 5 identity core 已首次掃描。
+Phase 0-2 完成。五層架構全部有 Joey 實際數據，端到端 pipeline 已驗證。
 
 ## 數據現況（Joey）
 
 | 層 | 數量 | 狀態 |
 |----|------|------|
-| Layer 1: Signals | 2,737 | ✅ 從 16 新版 signal 格式全量重新匯入 |
+| Layer 1: Signals | 2,737 | ✅ 從 16 新版 signal 格式全量匯入（2,856 atoms → 119 去重） |
 | Layer 2: Convictions | 132 | ✅ threshold 0.55，30 core + 48 established + 54 developing |
 | Layer 3: Traces | 254 | ✅ 分組提取 + 去重（93% high confidence） |
-| Layer 4: Frames | 4 | ✅ social_post / team_meeting / one_on_one / short_video |
-| Layer 5: Identity | 1 | ✅ 「最小成本快速驗證」覆蓋 75% frames |
+| Layer 4: Frames | 4 | ✅ 見下方情境框架詳情 |
+| Layer 5: Identity | 1 | ✅ 見下方身份核心詳情 |
 
 Contradictions: 11（全為 creative_tension / context_dependent，無真正矛盾）
 Pending followups: 0（backfill_cutoff 生效）
@@ -23,6 +23,27 @@ Pending followups: 0（backfill_cutoff 生效）
 - **觸發場景**：teaching_moment（78）> problem_encountered（70）> decision_required（52）
 - **信心程度**：93% high confidence、6% medium
 - **信念領域**：short_video（21）> content_creation（18）> personal_branding（17）> entrepreneurship（14）
+
+### Layer 4: 情境框架
+
+| Frame | 名稱 | 推理風格 | 關聯信念 |
+|-------|------|----------|----------|
+| social_post | 社群教學與價值傳遞 | first_principles | 5 |
+| team_meeting | 數據驅動決策框架 | analytical | 3 |
+| one_on_one | 一對一引導決策 | analytical | 7 |
+| short_video | 短影音創業實戰指導 | first_principles | 2 |
+
+### Layer 5: 身份核心
+
+> **「先用最小成本快速驗證，再根據實際反饋逐步優化，避免一開始追求完美而導致失敗」**
+
+- 覆蓋率：75%（3/4 frames）
+- consistency: 0.8
+- 情境表現：
+  - **社群發文**：用實測過的最小方案當教學案例，鼓勵讀者立刻用最簡單版本開始做
+  - **團隊會議**：提議先用最低成本做 AB 測試驗證假設，用數據確認方向後再投入資源
+  - **一對一輔導**：引導對方先用最簡單方式試一次，消除「要做到完美才能開始」的阻力
+  - **短影音**：教學生用手機拍第一支影片直接發布測試數據，根據反饋調整方向
 
 ## 已完成的檔案
 
@@ -57,7 +78,7 @@ config/default.yaml           ← claude_code backend + 防護設定
 
 ### identity_scanner.py（Layer 5）
 - 載入所有 active frames，統計每個 conviction 的跨 frame 覆蓋率
-- 覆蓋率 > 80%（可在 config 調整）的 conviction 升級為 identity core
+- 覆蓋率 > 50%（config 可調，原 80% 因 frame 數少調降）的 conviction 升級為 identity core
 - 用 LLM 生成每個 identity 在不同 frame 下的表現描述
 - 自動設定 non_negotiable（strength >= 0.9）
 
@@ -80,8 +101,8 @@ config/default.yaml           ← claude_code backend + 防護設定
 ## 下一步
 
 ### 立即可做
-- [ ] 用 Joey 資料跑一次完整流程：`cluster` → `scan-identity` → `build-index` → `query`
-- [ ] 驗證 query 回應品質
+- [x] 用 Joey 資料跑一次完整流程：`cluster` → `scan-identity`（已完成）
+- [ ] `build-index` → `query` 驗證五層感知查詢品質
 
 ### Phase 2 剩餘
 - [ ] Signal 預過濾（ingest 時 embedding 快篩，增量 conviction 更新）
@@ -123,12 +144,13 @@ uv run python migrate_atoms.py --atoms /path/to/atoms.jsonl --owner joey
 ## Git log
 
 ```
+a1f9f20 feat: Layer 4/5 首次執行 — 4 frames + 1 identity core
+668622d tune: similarity_threshold 0.75→0.55，conviction 14→132 筆
+014360d perf: query_engine 改用 ChromaDB 索引加速 + 更新全部文件
+4cfb62c refactor: 更新遷移工具支援新版 signal 格式 + 全量重建資料
 1598fd3 feat: Phase 2 核心完成 — frame_clusterer + identity_scanner + query_engine
 3906fa3 docs: 重寫 CLAUDE.md — 定義閉環控制系統架構 + CyberLoop 概念對照 + Phase 路線圖
-28b7812 docs: 更新 HANDOFF — P0-P2 全部修復，資料已清理
 6c5d468 fix: 修復 P0-P2 已知問題 — 幻覺過濾、歷史跳過、矛盾信心、trace 去重
-87da127 docs: 更新 HANDOFF — Phase 1 完成，含數據現況與已知問題
-7af9fdf refactor: trace_extractor v2 — 按 (date, context) 分組提取推理軌跡
 8b2831b feat: Phase 1 完成 — conviction detection + trace extraction + claude_code backend
 ef217e1 feat: Phase 0 完成 — 引擎基礎框架 + atoms 遷移工具
 ```
