@@ -2,7 +2,7 @@
 
 ## 當前狀態
 
-Phase 0 + Phase 1 完成。Phase 2 核心模組（frame_clusterer / identity_scanner / query_engine）已實作，待用 Joey 資料實際跑一次驗證。
+Phase 0-2 完成。五層架構前四層已有 Joey 實際數據，Layer 5 identity core 已首次掃描。
 
 ## 數據現況（Joey）
 
@@ -11,8 +11,8 @@ Phase 0 + Phase 1 完成。Phase 2 核心模組（frame_clusterer / identity_sca
 | Layer 1: Signals | 2,737 | ✅ 從 16 新版 signal 格式全量重新匯入 |
 | Layer 2: Convictions | 132 | ✅ threshold 0.55，30 core + 48 established + 54 developing |
 | Layer 3: Traces | 254 | ✅ 分組提取 + 去重（93% high confidence） |
-| Layer 4: Frames | — | ✅ 程式碼已完成，待首次 `cluster` 執行 |
-| Layer 5: Identity | — | ✅ 程式碼已完成，待首次 `scan-identity` 執行 |
+| Layer 4: Frames | 4 | ✅ social_post / team_meeting / one_on_one / short_video |
+| Layer 5: Identity | 1 | ✅ 「最小成本快速驗證」覆蓋 75% frames |
 
 Contradictions: 11（全為 creative_tension / context_dependent，無真正矛盾）
 Pending followups: 0（backfill_cutoff 生效）
