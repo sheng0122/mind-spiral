@@ -249,6 +249,20 @@ def scan_identity_cmd(owner: str):
         click.echo(f"  不可妥協: {'是' if i.non_negotiable else '否'}")
 
 
+@cli.command(name="build-index")
+@click.option("--owner", required=True, help="使用者 ID")
+def build_index_cmd(owner: str):
+    """建立 trace/frame 的向量索引（加速查詢）"""
+    from engine.query_engine import build_index
+
+    config = load_config()
+    click.echo(f"[{owner}] 建立向量索引...")
+    stats = build_index(owner, config)
+    click.echo(f"  Traces 索引: {stats['traces_indexed']} 筆")
+    click.echo(f"  Frames 索引: {stats['frames_indexed']} 筆")
+    click.echo("索引建立完成，查詢速度已優化。")
+
+
 @cli.command(name="query")
 @click.option("--owner", required=True, help="使用者 ID")
 @click.option("--caller", default=None, help="提問者身份")

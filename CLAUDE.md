@@ -112,7 +112,7 @@ conviction detection（embedding 聚類 + 五種共鳴 + 幻覺過濾）、trace
 |------|------|---|
 | frame_clusterer.py | 從 traces 聚類情境框架（Layer 4） | ✅ |
 | identity_scanner.py | 跨 frame 覆蓋率篩選（Layer 5） | ✅ |
-| query_engine.py | 五層感知 RAG + 反射匹配 | ✅ |
+| query_engine.py | 五層感知 RAG + 反射匹配 + ChromaDB 索引加速 | ✅ |
 | Signal 預過濾 | ingest 時用 embedding 快篩，增量 conviction 更新 | 待做 |
 | 信念漂移偵測 | 定期重算 conviction embedding，方向變化 > 閾值 → 警報 | 待做 |
 | 動態 strength 調整 | outcome 回饋時根據累積趨勢動態計算，取代固定 ±0.05（PID） | 待做 |
@@ -161,6 +161,7 @@ mind-spiral daily --owner joey           # 每日整理
 mind-spiral weekly --owner joey          # 每週報告
 mind-spiral cluster --owner joey         # 聚類情境框架（Layer 4）
 mind-spiral scan-identity --owner joey   # 掃描身份核心（Layer 5）
+mind-spiral build-index --owner joey     # 建立向量索引（加速查詢，一次性）
 mind-spiral query --owner joey "定價怎麼看？"  # 五層感知查詢
 mind-spiral query --owner joey --caller alice "定價怎麼看？"  # 帶提問者身份
 

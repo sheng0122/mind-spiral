@@ -3,16 +3,23 @@
 流程：
 1. Frame Matching — 反射匹配（關鍵字命中）或 embedding 匹配
 2. Conviction Activation — 根據 frame 激活信念組合
-3. Trace Retrieval — 找類似情境的推理路徑
+3. Trace Retrieval — 用 ChromaDB 向量搜尋找相關推理軌跡
 4. Identity Check — 確認不違反身份核心
 5. Response Generation — 用該 frame 的語氣和推理風格生成回應
+
+效能設計：
+- Frame/Trace 的 embedding 預先建好索引（build_index）
+- 查詢時只算一次問題的 embedding，其餘用 ChromaDB 向量搜尋
+- 反射匹配命中時完全跳過 embedding 計算
 """
 
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from pathlib import Path
 
+import chromadb
 import numpy as np
 
 from engine.config import get_owner_dir
@@ -43,6 +50,88 @@ class QueryContext:
     response: str = ""
 
 
+# ─── 索引管理 ───
+
+
+def build_index(owner_id: str, config: dict) -> dict:
+    """預先建立 trace 和 frame 的 ChromaDB 索引。
+
+    應在 cluster / scan-identity 之後執行一次，之後查詢就不用逐一算 embedding。
+    回傳統計資訊。
+    """
+    owner_dir = get_owner_dir(config, owner_id)
+    store = SignalStore(config, owner_id)
+    chroma_dir = owner_dir / "chroma"
+    client = chromadb.PersistentClient(path=str(chroma_dir))
+
+    stats = {"traces_indexed": 0, "frames_indexed": 0}
+
+    # --- Trace 索引 ---
+    traces = _load_traces(owner_dir)
+    if traces:
+        col = client.get_or_create_collection(
+            name=f"{owner_id}_traces",
+            metadata={"hnsw:space": "cosine"},
+        )
+        # 清除舊索引重建
+        existing = col.get()
+        if existing["ids"]:
+            col.delete(ids=existing["ids"])
+
+        ids = []
+        documents = []
+        metadatas = []
+        for t in traces:
+            text = f"{t.trigger.situation} {t.conclusion.decision}"
+            ids.append(t.trace_id)
+            documents.append(text)
+            metadatas.append({
+                "style": t.reasoning_path.style,
+                "stimulus_type": t.trigger.stimulus_type,
+                "context": t.source.context or "",
+                "date": t.source.date,
+            })
+
+        embeddings = store._get_embedder().encode(
+            documents, normalize_embeddings=True, show_progress_bar=len(documents) > 50,
+        ).tolist()
+
+        col.add(ids=ids, documents=documents, embeddings=embeddings, metadatas=metadatas)
+        stats["traces_indexed"] = len(ids)
+
+    # --- Frame 索引 ---
+    frames = _load_frames(owner_dir)
+    if frames:
+        col = client.get_or_create_collection(
+            name=f"{owner_id}_frames",
+            metadata={"hnsw:space": "cosine"},
+        )
+        existing = col.get()
+        if existing["ids"]:
+            col.delete(ids=existing["ids"])
+
+        ids = []
+        documents = []
+        for f in frames:
+            text = f"{f.name} {f.description}"
+            for tp in f.trigger_patterns:
+                text += f" {tp.pattern}"
+            ids.append(f.frame_id)
+            documents.append(text)
+
+        embeddings = store._get_embedder().encode(
+            documents, normalize_embeddings=True,
+        ).tolist()
+
+        col.add(ids=ids, documents=documents, embeddings=embeddings)
+        stats["frames_indexed"] = len(ids)
+
+    return stats
+
+
+# ─── Frame Matching ───
+
+
 def _reflex_match(question: str, frames: list[ContextFrame]) -> ContextFrame | None:
     """反射匹配：關鍵字直接命中 trigger_patterns → 跳過 embedding。"""
     question_lower = question.lower()
@@ -63,27 +152,45 @@ def _reflex_match(question: str, frames: list[ContextFrame]) -> ContextFrame | N
     return best_frame if best_hits >= 1 else None
 
 
-def _embedding_match(
+def _embedding_match_frame(
     question: str,
     frames: list[ContextFrame],
     store: SignalStore,
+    owner_id: str,
+    owner_dir: Path,
 ) -> ContextFrame | None:
-    """Embedding 匹配：計算問題與每個 frame 描述的 cosine similarity。"""
+    """用 ChromaDB 索引匹配 frame。如果索引不存在則 fallback 到即時計算。"""
     if not frames:
         return None
 
-    q_emb = np.array(store.compute_embedding(question))
+    frame_map = {f.frame_id: f for f in frames}
 
+    # 嘗試用 ChromaDB 索引
+    chroma_dir = owner_dir / "chroma"
+    try:
+        client = chromadb.PersistentClient(path=str(chroma_dir))
+        col = client.get_collection(name=f"{owner_id}_frames")
+        q_emb = store.compute_embedding(question)
+        results = col.query(query_embeddings=[q_emb], n_results=1)
+        if results["ids"] and results["ids"][0]:
+            best_id = results["ids"][0][0]
+            distance = results["distances"][0][0] if results.get("distances") else 1.0
+            # cosine distance: 0 = identical, 2 = opposite. threshold ~0.7 similarity = ~0.3 distance
+            if distance < 0.7 and best_id in frame_map:
+                return frame_map[best_id]
+    except Exception:
+        pass
+
+    # Fallback: 即時計算（frame 數量少，不會太慢）
+    q_emb = np.array(store.compute_embedding(question))
     best_frame = None
     best_sim = -1.0
 
     for frame in frames:
-        # 用 frame 的 name + description + trigger patterns 組成文本
         frame_text = f"{frame.name} {frame.description}"
         for tp in frame.trigger_patterns:
             frame_text += f" {tp.pattern}"
         f_emb = np.array(store.compute_embedding(frame_text))
-
         sim = float(np.dot(q_emb, f_emb) / (np.linalg.norm(q_emb) * np.linalg.norm(f_emb) + 1e-8))
         if sim > best_sim:
             best_sim = sim
@@ -92,36 +199,59 @@ def _embedding_match(
     return best_frame if best_sim > 0.3 else None
 
 
+# ─── Trace Retrieval ───
+
+
 def _find_relevant_traces(
     question: str,
     frame: ContextFrame | None,
     traces: list[ReasoningTrace],
     store: SignalStore,
+    owner_id: str,
+    owner_dir: Path,
     limit: int = 5,
 ) -> list[ReasoningTrace]:
-    """找與問題相關的推理軌跡。優先找同 frame 的。"""
-    # 如果有 frame，先從 historical_traces 找
+    """用 ChromaDB 索引找相關 traces。如果索引不存在則 fallback。"""
+    if not traces:
+        return []
+
+    trace_map = {t.trace_id: t for t in traces}
+
+    # 如果有 frame 且 historical_traces 夠多，直接用
     if frame and frame.reasoning_patterns.historical_traces:
         frame_trace_ids = set(frame.reasoning_patterns.historical_traces)
         frame_traces = [t for t in traces if t.trace_id in frame_trace_ids]
         if len(frame_traces) >= limit:
             return frame_traces[:limit]
 
-    # Embedding 搜尋
-    if not traces:
-        return []
+    # 嘗試用 ChromaDB 索引
+    chroma_dir = owner_dir / "chroma"
+    try:
+        client = chromadb.PersistentClient(path=str(chroma_dir))
+        col = client.get_collection(name=f"{owner_id}_traces")
+        q_emb = store.compute_embedding(question)
+        results = col.query(query_embeddings=[q_emb], n_results=limit)
+        if results["ids"] and results["ids"][0]:
+            found = []
+            for tid in results["ids"][0]:
+                if tid in trace_map:
+                    found.append(trace_map[tid])
+            if found:
+                return found
+    except Exception:
+        pass
 
-    q_emb = np.array(store.compute_embedding(question))
+    # Fallback: 只用 frame 的 historical_traces（避免逐一算 embedding）
+    if frame and frame.reasoning_patterns.historical_traces:
+        frame_trace_ids = set(frame.reasoning_patterns.historical_traces)
+        return [t for t in traces if t.trace_id in frame_trace_ids][:limit]
 
-    scored: list[tuple[float, ReasoningTrace]] = []
-    for t in traces:
-        t_text = f"{t.trigger.situation} {t.conclusion.decision}"
-        t_emb = np.array(store.compute_embedding(t_text))
-        sim = float(np.dot(q_emb, t_emb) / (np.linalg.norm(q_emb) * np.linalg.norm(t_emb) + 1e-8))
-        scored.append((sim, t))
+    # 最後 fallback: 按日期取最近的
+    sorted_traces = sorted(traces, key=lambda t: t.source.date, reverse=True)
+    return sorted_traces[:limit]
 
-    scored.sort(key=lambda x: -x[0])
-    return [t for _, t in scored[:limit]]
+
+# ─── Response Generation ───
 
 
 def _build_response_prompt(ctx: QueryContext) -> str:
@@ -189,6 +319,9 @@ def _build_response_prompt(ctx: QueryContext) -> str:
 - 可以引用自己過去的推理邏輯作為佐證"""
 
 
+# ─── 主入口 ───
+
+
 def query(
     owner_id: str,
     question: str,
@@ -220,7 +353,7 @@ def query(
         ctx.matched_frame = matched
         ctx.match_method = "reflex"
     else:
-        matched = _embedding_match(question, active_frames, store)
+        matched = _embedding_match_frame(question, active_frames, store, owner_id, owner_dir)
         if matched:
             ctx.matched_frame = matched
             ctx.match_method = "embedding"
@@ -236,9 +369,9 @@ def query(
         sorted_convictions = sorted(convictions, key=lambda c: -c.strength.score)
         ctx.activated_convictions = sorted_convictions[:5]
 
-    # Step 3: Trace Retrieval
+    # Step 3: Trace Retrieval（用 ChromaDB 索引）
     ctx.relevant_traces = _find_relevant_traces(
-        question, ctx.matched_frame, traces, store,
+        question, ctx.matched_frame, traces, store, owner_id, owner_dir,
     )
 
     # Step 4: Identity Check
