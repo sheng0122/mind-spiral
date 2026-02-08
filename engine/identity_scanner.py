@@ -130,26 +130,24 @@ def scan(owner_id: str, config: dict) -> list[IdentityCore]:
         if coverage >= threshold and cid in conviction_map:
             candidates.append((cid, frame_ids, coverage))
 
+    # 如果沒有達標的，取覆蓋率最高的 top-3（至少出現在 2+ frames）
+    if not candidates:
+        fallback = []
+        for cid, frame_ids in conviction_frame_map.items():
+            if len(frame_ids) >= 2 and cid in conviction_map:
+                coverage = len(frame_ids) / total_frames
+                fallback.append((cid, frame_ids, coverage))
+        fallback.sort(key=lambda x: (-x[2], -conviction_map[x[0]].strength.score))
+        candidates = fallback[:3]
+
     if not candidates:
         return []
 
-    # Step 3: 載入既有 identity，比對避免重複
-    existing = _load_identity(owner_dir)
-    existing_cids = {i.conviction_id for i in existing}
-
+    # Step 3: 全量重建 identity（跟 frame_clusterer 一樣，每次重跑）
     today = datetime.now().strftime("%Y-%m-%d")
     new_identities: list[IdentityCore] = []
 
     for cid, frame_ids, coverage in candidates:
-        if cid in existing_cids:
-            # 更新覆蓋率
-            for identity in existing:
-                if identity.conviction_id == cid:
-                    identity.universality.active_in_frames = frame_ids
-                    identity.universality.total_active_frames = total_frames
-                    identity.universality.coverage = round(coverage, 2)
-            continue
-
         conviction = conviction_map[cid]
 
         # LLM 生成 expressions
@@ -164,7 +162,7 @@ def scan(owner_id: str, config: dict) -> list[IdentityCore]:
                 for fid in frame_ids[:5]
             ]
 
-        seq = len(existing) + len(new_identities) + 1
+        seq = len(new_identities) + 1
         identity = IdentityCore(
             owner_id=owner_id,
             identity_id=f"id_{seq:03d}",
@@ -184,8 +182,7 @@ def scan(owner_id: str, config: dict) -> list[IdentityCore]:
         )
         new_identities.append(identity)
 
-    # 儲存
-    all_identities = existing + new_identities
-    _save_identity(owner_dir, all_identities)
+    # 儲存（全量覆寫）
+    _save_identity(owner_dir, new_identities)
 
     return new_identities

@@ -24,8 +24,8 @@ engine:
 
   # Frame Clustering
   frame:
-    similarity_threshold: 0.55        # trace 語義相似度門檻
-    min_traces: 5                     # 至少幾個 traces 才建立 frame
+    similarity_threshold: 0.52        # trace 語義相似度門檻
+    min_traces: 3                     # 至少幾個 traces 才建立 frame（從 5 降低）
 
   # Contradiction Detection
   contradiction:

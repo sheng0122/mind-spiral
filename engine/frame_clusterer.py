@@ -215,7 +215,7 @@ def _generate_frame_metadata(
         return None
 
 
-def cluster(owner_id: str, config: dict, min_traces: int = 5) -> list[ContextFrame]:
+def cluster(owner_id: str, config: dict, min_traces: int = 3) -> list[ContextFrame]:
     """主入口：從 traces 語義聚類出 context frames。
 
     v2: 用 trace 語義特徵 embedding 聚類，不再按字面 context 分組。
