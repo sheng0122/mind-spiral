@@ -9,19 +9,20 @@ Phase 0 + Phase 1 完成。Phase 2 核心模組（frame_clusterer / identity_sca
 | 層 | 數量 | 狀態 |
 |----|------|------|
 | Layer 1: Signals | 2,737 | ✅ 從 16 新版 signal 格式全量重新匯入 |
-| Layer 2: Convictions | 14 | ✅ 全部乾淨，零幻覺 |
-| Layer 3: Traces | 221 | ✅ 分組提取 + 去重（94% high confidence） |
+| Layer 2: Convictions | 132 | ✅ threshold 0.55，30 core + 48 established + 54 developing |
+| Layer 3: Traces | 254 | ✅ 分組提取 + 去重（93% high confidence） |
 | Layer 4: Frames | — | ✅ 程式碼已完成，待首次 `cluster` 執行 |
 | Layer 5: Identity | — | ✅ 程式碼已完成，待首次 `scan-identity` 執行 |
 
-Contradictions: 0（min_confidence=7 過濾後無通過）
+Contradictions: 11（全為 creative_tension / context_dependent，無真正矛盾）
 Pending followups: 0（backfill_cutoff 生效）
 
-### Joey 的思維指紋（從 221 traces）
+### Joey 的思維指紋（從 254 traces）
 
-- **推理風格**：first_principles（70）> analytical（68）> pattern_matching（32）> storytelling（20）
-- **觸發場景**：teaching_moment（70）> problem_encountered（62）> decision_required（41）
-- **信心程度**：94% high confidence、6% medium
+- **推理風格**：first_principles（77）> analytical（74）> empathy_driven（35）> pattern_matching（32）
+- **觸發場景**：teaching_moment（78）> problem_encountered（70）> decision_required（52）
+- **信心程度**：93% high confidence、6% medium
+- **信念領域**：short_video（21）> content_creation（18）> personal_branding（17）> entrepreneurship（14）
 
 ## 已完成的檔案
 
