@@ -20,6 +20,11 @@ engine:
       tactical_days: 14               # 戰術決策回訪天數
       strategic_days: 60              # 策略決策回訪天數
       personnel_days: 30              # 人事決策回訪天數
+      backfill_cutoff_date: "2026-02-09"  # 早於此日期的歷史 trace 不進入追蹤佇列
+
+  # Contradiction Detection
+  contradiction:
+    min_confidence: 7                 # LLM 信心分數 < 此值的矛盾判定會被過濾
 
   # Periodic Jobs
   schedule:

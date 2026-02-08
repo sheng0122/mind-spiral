@@ -213,6 +213,7 @@ class TraceOutcome(BaseModel):
 
 class TraceSource(BaseModel):
     date: str
+    context: str | None = None
     source_file: str | None = None
     participants: list[str] | None = None
 

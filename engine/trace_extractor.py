@@ -226,6 +226,7 @@ def _parse_group_response(raw: str, signals: list[Signal], date: str, context: s
                 conclusion=conclusion,
                 source=TraceSource(
                     date=date,
+                    context=context,
                     source_file=source_file,
                     participants=participants,
                 ),
@@ -261,14 +262,18 @@ def extract(owner_id: str, config: dict, limit: int | None = None) -> list[Reaso
     if not candidates:
         return []
 
-    # 排除已提取過的 signals
+    # 排除已處理過的 (date, context) 分組
     existing_traces = _load_traces(owner_dir)
-    extracted_signal_ids = {
-        t.trigger.from_signal
-        for t in existing_traces
-        if t.trigger.from_signal
-    }
-    candidates = [s for s in candidates if s.signal_id not in extracted_signal_ids]
+    extracted_groups: set[tuple[str, str]] = set()
+    for t in existing_traces:
+        if t.source.date:
+            key = (t.source.date, t.source.context or "")
+            extracted_groups.add(key)
+
+    candidates = [
+        s for s in candidates
+        if (s.source.date, s.source.context) not in extracted_groups
+    ]
 
     if not candidates:
         return []

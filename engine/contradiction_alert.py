@@ -15,23 +15,38 @@ from engine.models import Conviction, ConvictionTension
 from engine.signal_store import SignalStore
 
 
-def _classify_tension(c1: Conviction, c2: Conviction, config: dict) -> str | None:
-    """用 LLM 判斷兩個 conviction 的關係。回傳 relationship 或 None（不矛盾）。"""
+def _classify_tension(c1: Conviction, c2: Conviction, config: dict) -> tuple[str, int] | tuple[None, int]:
+    """用 LLM 判斷兩個 conviction 的關係。回傳 (relationship, confidence) 或 (None, 0)。"""
     prompt = (
         "以下是同一個人持有的兩個信念：\n\n"
         f"A: {c1.statement}\n"
         f"B: {c2.statement}\n\n"
-        "請判斷這兩個信念的關係，只回答以下其中一個詞：\n"
+        "請判斷這兩個信念的關係，用以下格式回答（一行）：\n"
+        "關係詞 信心分數(1-10)\n\n"
+        "可用的關係詞：\n"
         "- contradiction（直接矛盾）\n"
         "- evolution（觀點演進，B 取代 A）\n"
         "- context_dependent（在不同情境下都合理）\n"
         "- creative_tension（有張力但共存）\n"
         "- unrelated（無關）\n\n"
-        "只回答一個詞。"
+        "範例：contradiction 8\n"
+        "只回答一行。"
     )
     result = call_llm(prompt, config=config).strip().lower()
     valid = {"contradiction", "evolution", "context_dependent", "creative_tension"}
-    return result if result in valid else None
+
+    parts = result.split()
+    relationship = parts[0] if parts else ""
+    confidence = 5  # default
+    if len(parts) >= 2:
+        try:
+            confidence = int(parts[1])
+        except ValueError:
+            pass
+
+    if relationship not in valid:
+        return None, 0
+    return relationship, confidence
 
 
 def scan(owner_id: str, config: dict) -> list[dict]:
@@ -74,9 +89,12 @@ def scan(owner_id: str, config: dict) -> list[dict]:
             if sim < 0.7 or sim > 0.95:  # 太相似的可能是同一概念
                 continue
 
-            # LLM 確認
-            relationship = _classify_tension(c1, c2, config)
+            # LLM 確認（含信心分數過濾）
+            min_confidence = config.get("engine", {}).get("contradiction", {}).get("min_confidence", 7)
+            relationship, confidence = _classify_tension(c1, c2, config)
             if not relationship:
+                continue
+            if confidence < min_confidence:
                 continue
 
             results.append({
@@ -86,6 +104,7 @@ def scan(owner_id: str, config: dict) -> list[dict]:
                 "statement_b": c2.statement,
                 "similarity": round(sim, 3),
                 "relationship": relationship,
+                "confidence": confidence,
             })
 
             # 寫入 tensions

@@ -17,6 +17,8 @@ def get_pending_followups(owner_id: str, config: dict) -> list[dict]:
 
     掃描 traces 中 outcome 為 None 或 pending 的，
     根據 config 的天數設定判斷是否到期。
+
+    backfill_cutoff_date: 早於此日期的 trace 視為歷史資料，跳過追蹤。
     """
     owner_dir = get_owner_dir(config, owner_id)
     traces = _load_traces(owner_dir)
@@ -24,6 +26,8 @@ def get_pending_followups(owner_id: str, config: dict) -> list[dict]:
 
     followup_cfg = config.get("engine", {}).get("touch", {}).get("decision_followup", {})
     default_days = followup_cfg.get("tactical_days", 14)
+    # 歷史截止日：早於此日期的 trace 不進入追蹤佇列
+    backfill_cutoff = followup_cfg.get("backfill_cutoff_date")
 
     pending = []
     for t in traces:
@@ -36,6 +40,13 @@ def get_pending_followups(owner_id: str, config: dict) -> list[dict]:
             continue
 
         trace_date = datetime.strptime(t.source.date, "%Y-%m-%d")
+
+        # 歷史資料跳過：首次全量匯入的 trace 不應進入追蹤佇列
+        if backfill_cutoff:
+            cutoff = datetime.strptime(backfill_cutoff, "%Y-%m-%d")
+            if trace_date < cutoff:
+                continue
+
         days_ago = (today - trace_date).days
 
         if days_ago >= default_days:

@@ -120,16 +120,45 @@ def _build_resonance(signals: list[Signal]) -> tuple[ResonanceEvidence, int]:
     return evidence, count
 
 
-def _generate_conviction_statement(signals: list[Signal], config: dict) -> str:
-    """用 LLM 從一組 signals 生成 conviction statement。"""
+_LLM_SELF_REF_BLOCKLIST = [
+    "我需要先查看", "我需要先了解", "我無法確定", "我無法判斷",
+    "讓我先", "讓我查看", "根據以上", "根據這些",
+    "需要更多資訊", "需要更多信息", "需要先查看", "需要先了解",
+    "I need to", "I cannot", "Let me", "Based on the above",
+    "作為AI", "作為一個AI", "作為語言模型",
+    "我需要查看", "無法從這些", "這些文件",
+]
+
+
+def _is_llm_hallucination(statement: str) -> bool:
+    """檢查 conviction statement 是否為 LLM 自我指涉的幻覺。"""
+    lower = statement.lower()
+    for phrase in _LLM_SELF_REF_BLOCKLIST:
+        if phrase.lower() in lower:
+            return True
+    return False
+
+
+def _generate_conviction_statement(signals: list[Signal], config: dict) -> str | None:
+    """用 LLM 從一組 signals 生成 conviction statement。回傳 None 代表無效。"""
     texts = [f"- [{s.direction}/{s.source.context}] {s.content.text}" for s in signals[:10]]
     prompt = (
         "以下是一個人在不同場景下反覆表達的類似想法：\n\n"
         + "\n".join(texts)
         + "\n\n請用一句簡潔的中文（最多 50 字）總結這個人的核心信念。"
-        "只輸出信念本身，不要加前綴或解釋。"
+        "只輸出信念本身，不要加前綴或解釋。\n\n"
+        "重要規則：\n"
+        "- 你是在描述「這個人」的信念，不是你自己的想法\n"
+        "- 絕對不要輸出「我需要」「我無法」「讓我」「根據以上」等 AI 自我指涉語句\n"
+        "- 如果這些想法太零散無法歸納出明確信念，只回答 SKIP"
     )
-    return call_llm(prompt, config=config).strip().strip("「」""\"'")
+    result = call_llm(prompt, config=config).strip().strip("「」""\"'")
+
+    if not result or result.upper() == "SKIP":
+        return None
+    if _is_llm_hallucination(result):
+        return None
+    return result
 
 
 def _load_convictions(owner_dir: Path) -> list[Conviction]:
@@ -273,6 +302,8 @@ def detect(owner_id: str, config: dict) -> list[Conviction]:
         else:
             # 生成新 conviction
             statement = _generate_conviction_statement(cluster_signals, config)
+            if statement is None:
+                continue  # LLM 幻覺或無法歸納，跳過
             conviction = Conviction(
                 owner_id=owner_id,
                 conviction_id=f"conv_{uuid.uuid4().hex[:8]}",
