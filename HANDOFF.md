@@ -2,20 +2,29 @@
 
 ## 當前狀態
 
-Phase 0-2 完成。五層架構全部有 Joey 實際數據，端到端 pipeline 已驗證。Generation mode 上線，數位分身可產出內容（文章/貼文/腳本/決策）。
+Phase 0-2 完成。五層架構全部有 Joey 實際數據，端到端 pipeline 已驗證。Generation mode 上線，數位分身可產出內容（文章/貼文/腳本/決策）。Conviction strength 已加入 cross-direction 門檻和 authority 加權，解決「他講的內容不代表他真的信」問題。
 
 ## 數據現況（Joey）
 
 | 層 | 數量 | 狀態 |
 |----|------|------|
 | Layer 1: Signals | 2,737 | ✅ 從 16 新版 signal 格式全量匯入（2,856 atoms → 119 去重） |
-| Layer 2: Convictions | 132 | ✅ threshold 0.55，30 core + 48 established + 54 developing |
+| Layer 2: Convictions | 369 | ✅ 15 core + 20 established + 269 developing + 65 emerging |
 | Layer 3: Traces | 254 | ✅ 分組提取 + 去重（93% high confidence） |
-| Layer 4: Frames | 4 | ✅ 見下方情境框架詳情 |
-| Layer 5: Identity | 1 | ✅ 見下方身份核心詳情 |
+| Layer 4: Frames | 5 | ✅ threshold 0.52，見下方情境框架詳情 |
+| Layer 5: Identity | 2 | ✅ fallback top-3 機制，見下方身份核心詳情 |
 
 Contradictions: 11（全為 creative_tension / context_dependent，無真正矛盾）
 Pending followups: 0（backfill_cutoff 生效）
+
+### Conviction Strength 新規則（2026-02-09）
+
+解決「他講的內容不代表他真的信」問題：
+
+- **Cross-direction 門檻**：只有 output（創作內容）沒有 input（吸收/私下提到）的 conviction → cap 在 developing（≤0.5）
+- **Authority 加權**：first_person ×1.0 > second_person ×0.8 > third_party ×0.6
+- **全量重算**：每次 detect 結束時對所有 conviction 重算 strength
+- **效果**：core 30→15，純靠短影音撐起的投資 conviction 全部降級
 
 ### Joey 的思維指紋（從 254 traces）
 
@@ -24,28 +33,29 @@ Pending followups: 0（backfill_cutoff 生效）
 - **信心程度**：93% high confidence、6% medium
 - **信念領域**：short_video（21）> content_creation（18）> personal_branding（17）> entrepreneurship（14）
 
-### Layer 4: 思維框架（v2 語義聚類）
+### Layer 4: 思維框架（v3 調優後）
 
-v2 改用 trace 語義特徵 embedding 聚類，不再按字面 context 分組。框架代表「怎麼想」而非「在哪裡想」。
+threshold 0.55→0.52，min_traces 5→3，產出 5 frames（原 4）。
 
-| Frame | 名稱 | 推理風格 | Traces | 關聯信念 |
-|-------|------|----------|--------|----------|
-| 1 | 行動優先實戰框架 | first_principles | 20 | 5 |
-| 2 | 系統化管理與第一原則決策 | first_principles | 20 | 7 |
-| 3 | 同理傾聽驅動決策 | empathy_driven | 18 | 7 |
-| 4 | 反直覺理性投資框架 | analytical | 5 | 7 |
+| Frame | 名稱 | 推理風格 | 主要信念 | 語氣 |
+|-------|------|----------|----------|------|
+| 1 | 行動優先實戰驗證框架 | first_principles | 1 | direct |
+| 2 | 價值驅動的務實行動框架 | first_principles | 7 | direct |
+| 3 | 系統設計優先思維 | analytical | 6 | authoritative |
+| 4 | 長期主義資產增值框架 | analytical | 7 | authoritative |
+| 5 | 角色定位與系統優先思維 | first_principles | 4 | authoritative |
 
-### Layer 5: 身份核心
+### Layer 5: 身份核心（護欄模式）
 
-> **「先用最小成本快速驗證，再根據實際反饋逐步優化，避免一開始追求完美而導致失敗」**
+Identity 角色從「核心主題」降級為「底線護欄」——只在回答明顯矛盾時修正，不主動當主旨發揮。
 
-- 覆蓋率：75%（3/4 frames）
-- consistency: 0.8
-- 跨框架表現：
-  - **行動優先實戰**：先推出最簡陋的 MVP 測試市場反應，透過真實用戶反饋決定下一步
-  - **系統化管理**：建立最小可行的追蹤系統先跑數據，根據初期結果調整指標與流程
-  - **同理傾聽**：先用簡單提問快速確認對方核心需求，依回應動態調整建議
-  - **理性投資**：先用小額資金測試投資策略的實際效果，透過市場波動修正心態
+1. **「向優秀前輩學習勝過盲目創新，培養人才要無保留傳授而非藏私，適度激勵能讓雙方共贏並建立長期能力。」**
+   - 覆蓋率：40%（2/5 frames：系統設計優先 + 角色定位系統優先）
+
+2. **「先用最小成本快速驗證，再根據實際反饋逐步優化，避免一開始追求完美而導致失敗」**
+   - 覆蓋率：40%（2/5 frames：行動優先實戰 + 長期主義資產增值）
+
+identity_scanner 改為全量重建 + fallback 機制：沒有達到 50% 門檻時，取覆蓋率最高且出現在 2+ frames 的 top-3 conviction。
 
 ## 已完成的檔案
 
@@ -56,10 +66,10 @@ engine/
 ├── llm.py                    ← LLM 抽象層（local/cloud/claude_code + batch_llm 並行）
 ├── models.py                 ← 五層 Pydantic models
 ├── signal_store.py           ← Layer 1 CRUD + ChromaDB
-├── conviction_detector.py    ← Layer 2：embedding 聚類 + 共鳴收斂 + 幻覺過濾
+├── conviction_detector.py    ← Layer 2：embedding 聚類 + 共鳴收斂 + cross-direction 門檻 + authority 加權
 ├── trace_extractor.py        ← Layer 3：按 (date, context) 分組提取 + 分組級去重
 ├── frame_clusterer.py        ← Layer 4：trace 語義 embedding 聚類（v2）+ LLM 生成 metadata
-├── identity_scanner.py       ← Layer 5：跨 frame 覆蓋率篩選 + LLM 生成 expressions
+├── identity_scanner.py       ← Layer 5：跨 frame 覆蓋率篩選 + fallback top-3 + 全量重建
 ├── query_engine.py           ← 五層感知 RAG + Generation Mode + ask 統一入口
 ├── decision_tracker.py       ← 決策追蹤 + outcome 螺旋回饋 + 歷史跳過
 ├── contradiction_alert.py    ← 矛盾偵測 + LLM 信心分數過濾
@@ -72,45 +82,43 @@ config/default.yaml           ← claude_code backend + 防護設定
 
 ## Phase 2 新增模組說明
 
-### frame_clusterer.py（Layer 4，v2 語義聚類）
-- 每個 trace 轉成語義文字（trigger.situation + conclusion + activated convictions + style）
-- 用 embedding + AgglomerativeClustering 聚類（threshold 可調，預設 0.55）
-- 每個 cluster 統計：conviction 激活頻率、推理風格、觸發類型、出現場景
-- 用 LLM 生成 frame 名稱、描述、trigger_patterns、語氣
+### conviction_detector.py（Cross-direction + Authority 加權）
+- **Cross-direction 門檻**：`_has_cross_direction()` 檢查 signals 是否同時有 input 和 output，只有單方向 → cap 在 0.5
+- **Authority 加權**：`_compute_authority_weight()` 根據 signal 的 authority 欄位計算乘數
+- **全量重算**：detect 結束時從每個 conviction 的 `resonance_evidence` 回溯 signal_ids，重算所有 strength
+- 背景：Joey 拍了投資理財短影音（output），但私下從沒聊過投資（沒有 input），系統誤判為核心信念
+
+### frame_clusterer.py（Layer 4，v2→v3 調優）
+- threshold 0.55→0.52，min_traces 5→3
+- 產出 5 frames（原 4），覆蓋更多 traces
 - 全量覆寫（每次重新聚類），不做增量更新
 
-### identity_scanner.py（Layer 5）
-- 載入所有 active frames，統計每個 conviction 的跨 frame 覆蓋率
-- 覆蓋率 > 50%（config 可調，原 80% 因 frame 數少調降）的 conviction 升級為 identity core
-- 用 LLM 生成每個 identity 在不同 frame 下的表現描述
-- 自動設定 non_negotiable（strength >= 0.9）
+### identity_scanner.py（Layer 5，護欄模式）
+- 全量重建取代增量更新（跟 frame_clusterer 一致）
+- fallback 機制：沒有達到 coverage 門檻時，取 top-3 出現在 2+ frames 的 conviction
+- Identity 在 prompt 中的角色降級為底線護欄
 
 ### query_engine.py（五層感知 RAG + Generation Mode）
 - **反射匹配**：關鍵字命中 trigger_patterns → 跳過 embedding，< 1ms
 - **embedding 匹配**：用 ChromaDB 索引找最相關的 frame
-- **trace 檢索**：用 ChromaDB 索引找最相關的推理軌跡（不再逐一算 embedding）
-- **identity 檢查**：把 identity core 作為回應生成的護欄
-- **build_index()**：一次性預建 trace/frame 的 embedding 索引，查詢時只算一次問題 embedding
-- Fallback 設計：索引不存在時用 historical_traces 或最近 traces，不會卡住
+- **trace 檢索**：用 ChromaDB 索引找最相關的推理軌跡
+- **identity 檢查**：底線護欄，只在矛盾時修正，不主動引導內容方向
+- **build_index()**：一次性預建 trace/frame 的 embedding 索引
 
-#### Generation Mode（新增）
+#### Generation Mode
 - **generate()**：用五層思維模型產出完整內容，支援四種 output_type：
-  - `article`：800-1500 字完整文章（故事開頭 + 信念論述 + 行動結尾）
-  - `post`：200-400 字社群貼文（鉤子 + 短句節奏 + CTA）
-  - `script`：200-400 字短影音腳本（Hook + 痛點 + 方法 + CTA，標註秒數）
-  - `decision`：300-600 字決策分析（核心考量 + 信念權衡 + 明確建議）
-- 與 query 共用五層感知流程，但 generation 用更多 traces（8 vs 5）和更豐富的 prompt
-- **ask()**：統一入口，用 `_classify_intent()` 關鍵字自動路由 query 或 generate
-  - 「寫一篇」「幫我寫」「撰寫」→ article
-  - 「腳本」→ script
-  - 「貼文」「發文」→ post
-  - 「幫我決定」「該選哪個」→ decision
-  - 其餘 → query
+  - `article`：800-1500 字完整文章
+  - `post`：200-400 字社群貼文
+  - `script`：200-400 字短影音腳本（標註秒數）
+  - `decision`：300-600 字決策分析
+- 與 query 共用五層感知流程，但 generation 用更多 traces（8 vs 5）
+- **ask()**：統一入口，關鍵字自動路由 query 或 generate
 
 #### 測試結果（2026-02-09）
-- query 測試：定價/帶團隊/短影音 三題全通過，frame 分流正確
-- generate 測試：article（~1200 字）、script（~280 字 x 3 支）品質驗證通過
-- ask 自動路由：問句 → query、「幫我寫腳本」→ generate(script) 正確分流
+- query：不同問題走不同框架（帶團隊→系統設計、投資→長期主義、創作→行動優先），不再全部收束到同一結論
+- generate：article/script/decision 品質驗證通過
+- ask 自動路由：問句→query、「幫我寫腳本」→generate(script) 正確分流
+- cross-direction 效果：純短影音投資 conviction 從 core 降到 developing/emerging
 
 ## LLM Backend
 
@@ -123,12 +131,15 @@ config/default.yaml           ← claude_code backend + 防護設定
 ## 下一步
 
 ### 立即可做
-- [x] 用 Joey 資料跑一次完整流程：`cluster` → `scan-identity`（已完成）
-- [x] `build-index` → `query` 驗證五層感知查詢品質（已完成）
-- [x] Generation Mode — 數位分身可產出文章/貼文/腳本/決策（已完成）
-- [x] `ask` 統一入口 — 自動判斷 query vs generate（已完成）
+- [ ] 重跑 cluster → scan-identity → build-index（套用最新 conviction strength）
+- [ ] 測試更新後的 ask/generate 品質
 
 ### Phase 2 剩餘
+- [x] Generation Mode — 數位分身可產出文章/貼文/腳本/決策
+- [x] `ask` 統一入口 — 自動判斷 query vs generate
+- [x] Identity 護欄化 — 從綁架輸出改為底線護欄
+- [x] Frame 調優 — 4→5 frames，覆蓋更多 traces
+- [x] Cross-direction 門檻 — 解決「他講的不代表他信的」
 - [ ] Signal 預過濾（ingest 時 embedding 快篩，增量 conviction 更新）
 - [ ] 信念漂移偵測（定期重算 conviction embedding，方向變化 > 閾值 → 警報）
 - [ ] 動態 strength 調整（PID 概念，取代固定 ±0.05）
@@ -171,6 +182,10 @@ uv run python migrate_atoms.py --atoms /path/to/atoms.jsonl --owner joey
 ## Git log
 
 ```
+e5d2dde feat: conviction strength 加入 cross-direction 門檻 + authority 加權
+62bb366 fix: identity 從綁架輸出改為底線護欄 + frame 聚類調優
+0b2abc9 docs: 更新 CLAUDE.md — 加入 ask/generate 指令說明
+2e43197 docs: 更新 HANDOFF — generation mode + ask 統一入口
 5f54763 feat: generation mode + ask 統一入口 — 數位分身可產出內容和做決策
 056828d docs: 更新 HANDOFF — frame_clusterer v2 語義聚類 + 五層完整數據
 7abd6ee refactor: frame_clusterer v2 — 語義聚類取代字面 context 分組
