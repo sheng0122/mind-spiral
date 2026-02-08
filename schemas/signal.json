@@ -1,0 +1,170 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Signal (Layer 1)",
+  "description": "信號：使用者接觸過的一切。不做判斷，只記錄。關鍵區分：這是進來的（input）還是出去的（output）。兩者的交叉比對是整個系統的核心運算。",
+  "type": "object",
+  "required": ["owner_id", "signal_id", "direction", "modality", "content", "source", "lifecycle"],
+  "additionalProperties": false,
+  "properties": {
+
+    "owner_id": {
+      "type": "string",
+      "description": "使用者 ID，用於 multi-tenant 資料隔離。例如 'joey'、'alice'"
+    },
+
+    "signal_id": {
+      "type": "string",
+      "description": "唯一 ID，格式: sig_{direction}_{date}_{context}_{seq}，例如 sig_out_20260206_s3_001、sig_in_20260207_book_ch3_005"
+    },
+
+    "direction": {
+      "type": "string",
+      "enum": ["input", "output"],
+      "description": "信號方向。input=進來的（讀到、聽到、收到）；output=出去的（說的、寫的、做的決定）。這是最關鍵的維度——input 和 output 的交叉收斂 = 內化的證據。"
+    },
+
+    "modality": {
+      "type": "string",
+      "enum": [
+        "spoken_spontaneous",
+        "spoken_scripted",
+        "spoken_interview",
+        "written_casual",
+        "written_deliberate",
+        "written_structured",
+        "highlighted",
+        "consumed",
+        "received",
+        "decided",
+        "acted"
+      ],
+      "description": "信號模態。Output 模態：spoken_spontaneous=即興口語（錄音/會議）、spoken_scripted=有準備的口語（短影音/演講）、spoken_interview=訪談中的回應、written_casual=隨意文字（LINE）、written_deliberate=刻意撰寫（FB/Email）、written_structured=高度結構化（課程/簡報）、decided=做了一個決定、acted=採取了行動。Input 模態：highlighted=標記他人內容（書/文章畫線）、consumed=閱讀/觀看但未標記、received=別人跟你說的。"
+    },
+
+    "authority": {
+      "type": "string",
+      "enum": ["own_voice", "endorsed", "referenced", "received"],
+      "description": "誰的聲音。own_voice=自己的觀點、endorsed=認同的他人觀點（畫線）、referenced=讀過的他人觀點、received=別人告訴你的"
+    },
+
+    "content": {
+      "type": "object",
+      "required": ["text", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "信號內容本身"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "idea", "belief", "decision", "action",
+            "framework", "story", "quote", "question",
+            "observation", "reaction", "instruction",
+            "hook_pattern", "narrative_pattern", "key_message"
+          ],
+          "description": "信號的內容類型"
+        },
+        "reasoning": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "為什麼這樣想/做（適用於 belief、decision、action）"
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["strong_opinion", "exploring", "tentative", "quoting_others"],
+          "description": "使用者表達這段內容時的確定程度（僅 output 信號適用）"
+        },
+        "emotion": {
+          "type": "string",
+          "enum": ["focused", "excited", "frustrated", "reflective", "neutral", "stressed", "playful", "passionate", "doubtful"],
+          "description": "表達時的情緒狀態"
+        }
+      }
+    },
+
+    "source": {
+      "type": "object",
+      "required": ["date", "context"],
+      "additionalProperties": false,
+      "description": "溯源：這個信號從哪來的",
+      "properties": {
+        "date": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "context": {
+          "type": "string",
+          "enum": [
+            "solo_thinking", "team_meeting", "one_on_one",
+            "phone_call", "brainstorm", "client_meeting",
+            "presentation", "casual_chat", "commute",
+            "short_video", "social_post", "interview_guest", "host_interview",
+            "line_private", "line_group", "email",
+            "book_reading", "article_reading", "podcast_listening",
+            "course_learning", "other"
+          ]
+        },
+        "participants": {
+          "type": "array",
+          "maxItems": 8,
+          "items": { "type": "string" }
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "在原始素材中的時間點 MM:SS 或頁碼"
+        },
+        "source_file": {
+          "type": "string",
+          "description": "原始檔案路徑"
+        },
+        "book_title": { "type": "string", "maxLength": 100 },
+        "book_author": { "type": "string", "maxLength": 50 },
+        "chapter": { "type": "string", "maxLength": 100 }
+      }
+    },
+
+    "audience": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "聽眾維度（僅 output 信號需要）",
+      "properties": {
+        "directed_to": {
+          "type": "array",
+          "maxItems": 8,
+          "items": { "type": "string" }
+        },
+        "visibility": {
+          "type": "string",
+          "enum": ["public", "team_internal", "management_only", "one_on_one_private", "self_only"]
+        },
+        "relationship_context": {
+          "type": "string",
+          "enum": ["boss_to_team", "peer_to_peer", "to_client", "to_investor", "to_partner", "self_reflection", "public_facing", "content_creator", "teacher_to_student"]
+        }
+      }
+    },
+
+    "topics": {
+      "type": "array",
+      "maxItems": 5,
+      "items": { "type": "string", "maxLength": 30 },
+      "description": "主題標籤"
+    },
+
+    "lifecycle": {
+      "type": "object",
+      "required": ["active"],
+      "additionalProperties": false,
+      "properties": {
+        "active": { "type": "boolean" },
+        "created_at": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "deactivated_at": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "deactivated_reason": { "type": "string", "maxLength": 200 },
+        "superseded_by": { "type": "string" }
+      }
+    }
+  }
+}

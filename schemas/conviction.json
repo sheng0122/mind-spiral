@@ -1,0 +1,203 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Conviction (Layer 2)",
+  "description": "信念：從 Layer 1 信號的交叉比對中湧現出來的觀點。不是人工標記的，是系統偵測到 input-output 收斂、跨時間重複、跨情境一致後自動產生的。conviction 有強度——不是 0/1，是連續的。",
+  "type": "object",
+  "required": ["owner_id", "conviction_id", "statement", "strength", "domains", "resonance_evidence", "lifecycle"],
+  "additionalProperties": false,
+  "properties": {
+
+    "owner_id": {
+      "type": "string",
+      "description": "使用者 ID，用於 multi-tenant 資料隔離"
+    },
+
+    "conviction_id": {
+      "type": "string",
+      "description": "唯一 ID，格式: conv_{domain}_{seq}，例如 conv_pricing_001、conv_leadership_003"
+    },
+
+    "statement": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "信念的核心陳述，用使用者的語氣。例如：'價格應該反映價值，不是反映成本'"
+    },
+
+    "statement_variants": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "required": ["text", "context"],
+        "properties": {
+          "text": { "type": "string", "maxLength": 200 },
+          "context": { "type": "string", "maxLength": 50 },
+          "signal_id": { "type": "string" }
+        }
+      },
+      "description": "同一個信念在不同情境下的不同表述。例如對客戶說的版本 vs 對團隊說的版本。捕捉 framing 的差異。"
+    },
+
+    "strength": {
+      "type": "object",
+      "required": ["score", "level"],
+      "additionalProperties": false,
+      "description": "信念強度——從共鳴證據計算而來",
+      "properties": {
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "0-1 的連續分數。由 resonance_evidence 加權計算"
+        },
+        "level": {
+          "type": "string",
+          "enum": ["emerging", "developing", "established", "core"],
+          "description": "離散等級。emerging(0-0.3)=剛出現幾次、developing(0.3-0.6)=多次出現但尚未穩定、established(0.6-0.85)=跨情境一致的穩定信念、core(0.85-1.0)=接近 identity level 的強信念"
+        },
+        "trend": {
+          "type": "string",
+          "enum": ["strengthening", "stable", "weakening", "fluctuating"],
+          "description": "強度的變化趨勢"
+        },
+        "last_computed": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        }
+      }
+    },
+
+    "domains": {
+      "type": "array",
+      "maxItems": 3,
+      "items": { "type": "string", "maxLength": 30 },
+      "description": "這個信念屬於哪些領域。例如 ['定價', '品牌']"
+    },
+
+    "resonance_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "共鳴證據——為什麼系統認為這是一個 conviction，而不只是噪音",
+      "properties": {
+
+        "input_output_convergence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["input_signal", "output_signal", "detected_at"],
+            "properties": {
+              "input_signal": { "type": "string", "description": "input signal_id（讀到的）" },
+              "output_signal": { "type": "string", "description": "output signal_id（說出的）" },
+              "similarity": { "type": "number", "minimum": 0, "maximum": 1 },
+              "detected_at": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+            }
+          },
+          "description": "核心共鳴：讀到的東西後來自己也說了。權重最高。"
+        },
+
+        "temporal_persistence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["signal_ids", "time_span_days"],
+            "properties": {
+              "signal_ids": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "跨時間表達同一觀點的 signal IDs"
+              },
+              "time_span_days": { "type": "integer", "description": "最早到最晚的天數跨度" },
+              "first_date": { "type": "string" },
+              "last_date": { "type": "string" }
+            }
+          },
+          "description": "時間持續性：隔了很久還在說同一件事。"
+        },
+
+        "cross_context_consistency": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["signal_ids", "contexts"],
+            "properties": {
+              "signal_ids": { "type": "array", "items": { "type": "string" } },
+              "contexts": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "在哪些不同情境中表達過"
+              }
+            }
+          },
+          "description": "跨情境一致性：對不同人、在不同場合都這樣說。"
+        },
+
+        "spontaneous_mentions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["signal_id"],
+            "properties": {
+              "signal_id": { "type": "string" },
+              "was_prompted": { "type": "boolean", "description": "false = 主動提起（更強的信號）" }
+            }
+          },
+          "description": "自發提及：沒人問就自己講出來。"
+        },
+
+        "action_alignment": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["statement_signal", "action_signal"],
+            "properties": {
+              "statement_signal": { "type": "string", "description": "說的" },
+              "action_signal": { "type": "string", "description": "做的" },
+              "aligned": { "type": "boolean", "description": "行動是否與言論一致" }
+            }
+          },
+          "description": "言行一致性：說了之後真的這樣做。或者說了但沒做（反向信號）。"
+        }
+      }
+    },
+
+    "tensions": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "required": ["opposing_conviction", "relationship"],
+        "properties": {
+          "opposing_conviction": { "type": "string", "description": "對立的 conviction_id" },
+          "relationship": {
+            "type": "string",
+            "enum": ["contradiction", "creative_tension", "context_dependent", "evolving"],
+            "description": "contradiction=真的矛盾、creative_tension=刻意保持的張力、context_dependent=不同情境不同、evolving=正在從 A 演變到 B"
+          },
+          "note": { "type": "string", "maxLength": 100 }
+        }
+      },
+      "description": "與其他 conviction 的張力關係。人不是完全一致的——有些矛盾是真的矛盾，有些是刻意的張力。"
+    },
+
+    "lifecycle": {
+      "type": "object",
+      "required": ["status", "first_detected"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["active", "weakening", "superseded", "dormant"],
+          "description": "active=現行、weakening=正在減弱（最近沒再提）、superseded=被新信念取代、dormant=很久沒出現但未矛盾"
+        },
+        "first_detected": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "last_reinforced": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "superseded_by": { "type": "string" },
+        "evolution_chain": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "信念的演變鏈。例如：先相信 A，後來修正成 B，再修正成 C"
+        }
+      }
+    }
+  }
+}

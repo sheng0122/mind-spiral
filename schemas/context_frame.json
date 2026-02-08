@@ -1,0 +1,201 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Context Frame (Layer 4)",
+  "description": "情境框架：不同場景下，使用者的哪些信念會被激活、用什麼推理風格、傾向做出什麼類型的決策。同一個人在不同 context 下是不同的——不是虛偽，是正常的情境適應。Context Frame 就是這個激活函數。",
+  "type": "object",
+  "required": ["owner_id", "frame_id", "name", "description", "trigger_patterns", "conviction_profile", "reasoning_patterns"],
+  "additionalProperties": false,
+  "properties": {
+
+    "owner_id": {
+      "type": "string",
+      "description": "使用者 ID，用於 multi-tenant 資料隔離"
+    },
+
+    "frame_id": {
+      "type": "string",
+      "description": "唯一 ID，格式: frame_{domain}_{seq}，例如 frame_sales_001、frame_mentoring_001"
+    },
+
+    "name": {
+      "type": "string",
+      "maxLength": 50,
+      "description": "框架名稱。例如：'高價銷售應對'、'團隊決策'、'個人反思'"
+    },
+
+    "description": {
+      "type": "string",
+      "maxLength": 300,
+      "description": "這個情境框架的完整描述：什麼時候會進入這個模式、整體特徵是什麼"
+    },
+
+    "trigger_patterns": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "required": ["pattern"],
+        "additionalProperties": false,
+        "properties": {
+          "pattern": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "觸發模式描述。例如：'客戶質疑價格'、'團隊成員來請示決定'"
+          },
+          "keywords": {
+            "type": "array",
+            "maxItems": 5,
+            "items": { "type": "string", "maxLength": 20 },
+            "description": "關鍵詞，用於快速匹配"
+          },
+          "audience_type": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["client", "team", "partner", "investor", "public", "self", "student", "peer"]
+            },
+            "description": "對話對象類型"
+          }
+        }
+      },
+      "description": "什麼情境會激活這個 frame。用於 OpenClaw 接收到問題時的 frame 匹配。"
+    },
+
+    "conviction_profile": {
+      "type": "object",
+      "required": ["primary_convictions"],
+      "additionalProperties": false,
+      "description": "在這個情境下的信念激活組態",
+      "properties": {
+        "primary_convictions": {
+          "type": "array",
+          "maxItems": 7,
+          "items": {
+            "type": "object",
+            "required": ["conviction_id", "activation_weight"],
+            "properties": {
+              "conviction_id": { "type": "string" },
+              "activation_weight": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "description": "在這個 frame 下此信念的激活權重。同一個 conviction 在不同 frame 下的激活權重可以不同。"
+              },
+              "typical_role": {
+                "type": "string",
+                "enum": ["premise", "framework", "evidence", "constraint", "value_anchor", "counterpoint"],
+                "description": "在這個 frame 下通常扮演的角色"
+              }
+            }
+          },
+          "description": "這個情境下主要激活的信念"
+        },
+        "suppressed_convictions": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "required": ["conviction_id", "reason"],
+            "properties": {
+              "conviction_id": { "type": "string" },
+              "reason": {
+                "type": "string",
+                "maxLength": 100,
+                "description": "為什麼在這個情境下這個信念被壓制。例如：'對客戶不會提內部成本考量'"
+              }
+            }
+          },
+          "description": "在這個情境下被壓制（不激活）的信念。例如，面對客戶時不會提到內部資源限制。"
+        }
+      }
+    },
+
+    "reasoning_patterns": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "在這個情境下的推理模式偏好",
+      "properties": {
+        "preferred_style": {
+          "type": "string",
+          "enum": ["analytical", "intuitive", "storytelling", "socratic", "first_principles", "pattern_matching", "empathy_driven"],
+          "description": "這個情境下 使用者 偏好的推理風格"
+        },
+        "typical_steps": {
+          "type": "array",
+          "maxItems": 7,
+          "items": { "type": "string", "maxLength": 50 },
+          "description": "典型的推理步驟序列。例如：['先同理對方的感受', '重新定義問題框架', '用數據佐證', '給出明確建議']"
+        },
+        "historical_traces": {
+          "type": "array",
+          "maxItems": 20,
+          "items": { "type": "string" },
+          "description": "屬於這個 frame 的歷史 trace_ids"
+        }
+      }
+    },
+
+    "voice": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "在這個情境下 使用者 的表達風格",
+      "properties": {
+        "tone": {
+          "type": "string",
+          "enum": ["professional", "warm", "direct", "patient", "passionate", "casual", "authoritative"],
+          "description": "語氣"
+        },
+        "typical_phrases": {
+          "type": "array",
+          "maxItems": 5,
+          "items": { "type": "string", "maxLength": 50 },
+          "description": "在這個情境下 使用者 常用的口頭禪或句式"
+        },
+        "avoids": {
+          "type": "array",
+          "maxItems": 5,
+          "items": { "type": "string", "maxLength": 50 },
+          "description": "在這個情境下 使用者 會避免說的話"
+        }
+      }
+    },
+
+    "effectiveness": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "這個 frame 的歷史表現——螺旋回饋",
+      "properties": {
+        "success_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "從歷史 trace 的 outcome 計算"
+        },
+        "total_traces": { "type": "integer" },
+        "positive_traces": { "type": "integer" },
+        "negative_traces": { "type": "integer" },
+        "learning_note": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "從成敗中學到什麼。例如：'對價格敏感的客戶用故事比用數據有效'"
+        }
+      }
+    },
+
+    "lifecycle": {
+      "type": "object",
+      "required": ["status"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["active", "evolving", "deprecated"],
+          "description": "active=常用、evolving=正在調整中、deprecated=已經不再這樣做了"
+        },
+        "first_observed": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "last_activated": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "evolved_from": { "type": "string", "description": "從哪個舊 frame 演化來的" }
+      }
+    }
+  }
+}

@@ -1,0 +1,42 @@
+# Mind Spiral 預設設定
+
+engine:
+  data_dir: ./data                    # 資料根目錄
+  llm_backend: local                  # local | cloud
+
+  # Conviction Detection
+  conviction:
+    min_resonance_count: 2            # 至少幾種共鳴才建立新 conviction
+    similarity_threshold: 0.75        # 語意相似度門檻
+    strength_decay_days: 90           # N 天沒出現開始衰減
+    identity_coverage_threshold: 0.8  # 覆蓋率超過此值升級為 identity
+
+  # Proactive Touch
+  touch:
+    morning_digest_hour: 8            # 早晨整理推送時間
+    contradiction_cooldown_hours: 24  # 矛盾通知冷卻期
+    weekly_report_day: sunday         # 週報推送日
+    decision_followup:
+      tactical_days: 14               # 戰術決策回訪天數
+      strategic_days: 60              # 策略決策回訪天數
+      personnel_days: 30              # 人事決策回訪天數
+
+  # Periodic Jobs
+  schedule:
+    conviction_detection: daily       # 每日跑一次
+    frame_clustering: weekly          # 每週跑一次
+    identity_scan: monthly            # 每月跑一次
+
+llm:
+  local:
+    base_url: http://localhost:11434/v1
+    model: qwen2.5:14b
+    embedding_model: google/embeddinggemma-300m
+  cloud:
+    gateway_url: ""                   # Cloudflare AI Gateway
+    model: ""
+    api_key_env: CF_AIG_TOKEN
+
+line:
+  channel_access_token_env: LINE_CHANNEL_ACCESS_TOKEN
+  channel_secret_env: LINE_CHANNEL_SECRET

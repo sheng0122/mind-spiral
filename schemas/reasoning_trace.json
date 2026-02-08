@@ -1,0 +1,222 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Reasoning Trace (Layer 3)",
+  "description": "推理軌跡：Joey 面對某個情境時，哪些信念被激活、怎麼組合、得出什麼結論。這一層記錄的不是知識，是思維的動作。是 OpenClaw 模擬 Joey 思考方式的核心依據。",
+  "type": "object",
+  "required": ["owner_id", "trace_id", "trigger", "activated_convictions", "reasoning_path", "conclusion", "source"],
+  "additionalProperties": false,
+  "properties": {
+
+    "owner_id": {
+      "type": "string",
+      "description": "使用者 ID，用於 multi-tenant 資料隔離"
+    },
+
+    "trace_id": {
+      "type": "string",
+      "description": "唯一 ID，格式: trace_{date}_{context}_{seq}，例如 trace_20260206_s3_001"
+    },
+
+    "trigger": {
+      "type": "object",
+      "required": ["situation", "stimulus_type"],
+      "additionalProperties": false,
+      "description": "是什麼觸發了這段推理",
+      "properties": {
+        "situation": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "具體情境描述。例如：'客戶質疑課程定價太高'"
+        },
+        "stimulus_type": {
+          "type": "string",
+          "enum": [
+            "question_received",
+            "problem_encountered",
+            "decision_required",
+            "opinion_challenged",
+            "opportunity_spotted",
+            "conflict_to_resolve",
+            "teaching_moment",
+            "self_reflection"
+          ],
+          "description": "觸發類型"
+        },
+        "from_signal": {
+          "type": "string",
+          "description": "觸發這段推理的原始 signal_id（可回溯到逐字稿的具體位置）"
+        }
+      }
+    },
+
+    "activated_convictions": {
+      "type": "array",
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "required": ["conviction_id", "role"],
+        "additionalProperties": false,
+        "properties": {
+          "conviction_id": {
+            "type": "string",
+            "description": "被激活的 conviction ID"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["premise", "framework", "evidence", "constraint", "value_anchor", "counterpoint"],
+            "description": "這個信念在推理中扮演的角色。premise=前提假設、framework=分析框架、evidence=佐證、constraint=限制條件、value_anchor=價值觀錨點、counterpoint=自己考慮到的反面"
+          },
+          "activation_note": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "為什麼在這個情境下激活了這個信念"
+          }
+        }
+      },
+      "description": "被激活的信念組合。同一個信念在不同 trace 中可能扮演不同角色。"
+    },
+
+    "reasoning_path": {
+      "type": "object",
+      "required": ["steps", "style"],
+      "additionalProperties": false,
+      "description": "推理路徑——Joey 的思考步驟",
+      "properties": {
+        "steps": {
+          "type": "array",
+          "maxItems": 7,
+          "items": {
+            "type": "object",
+            "required": ["action", "description"],
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "empathize",
+                  "reframe",
+                  "analyze",
+                  "compare",
+                  "recall_experience",
+                  "apply_framework",
+                  "challenge_assumption",
+                  "weigh_tradeoff",
+                  "synthesize",
+                  "decide"
+                ],
+                "description": "這一步的思維動作"
+              },
+              "description": {
+                "type": "string",
+                "maxLength": 150,
+                "description": "具體做了什麼"
+              },
+              "uses_conviction": {
+                "type": "string",
+                "description": "這一步用了哪個 conviction_id"
+              }
+            }
+          }
+        },
+        "style": {
+          "type": "string",
+          "enum": [
+            "analytical",
+            "intuitive",
+            "storytelling",
+            "socratic",
+            "first_principles",
+            "pattern_matching",
+            "empathy_driven"
+          ],
+          "description": "整體推理風格。Joey 在不同情境下可能用不同風格。"
+        }
+      }
+    },
+
+    "conclusion": {
+      "type": "object",
+      "required": ["decision", "confidence"],
+      "additionalProperties": false,
+      "properties": {
+        "decision": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "最終結論或決定"
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["high", "medium", "low", "uncertain"],
+          "description": "Joey 對這個結論的確信程度"
+        },
+        "alternative_considered": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "考慮過但沒選的替代方案"
+        },
+        "output_signal": {
+          "type": "string",
+          "description": "結論對應的 output signal_id"
+        }
+      }
+    },
+
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "結果回饋——這個決定後來怎樣了？（事後填入，形成螺旋）",
+      "properties": {
+        "result": {
+          "type": "string",
+          "enum": ["positive", "negative", "mixed", "unknown", "pending"],
+          "description": "結果是好是壞"
+        },
+        "feedback_note": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "具體發生了什麼"
+        },
+        "conviction_impact": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "required": ["conviction_id", "effect"],
+            "properties": {
+              "conviction_id": { "type": "string" },
+              "effect": {
+                "type": "string",
+                "enum": ["reinforced", "weakened", "unchanged"],
+                "description": "結果對這個信念的影響"
+              }
+            }
+          },
+          "description": "結果回頭影響了哪些 conviction 的強度"
+        },
+        "recorded_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        }
+      }
+    },
+
+    "context_frame_id": {
+      "type": "string",
+      "description": "這個推理軌跡屬於哪個 Context Frame（Layer 4）"
+    },
+
+    "source": {
+      "type": "object",
+      "required": ["date"],
+      "additionalProperties": false,
+      "properties": {
+        "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "source_file": { "type": "string" },
+        "participants": {
+          "type": "array",
+          "maxItems": 8,
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

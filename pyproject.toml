@@ -1,0 +1,23 @@
+[project]
+name = "mind-spiral"
+version = "0.1.0"
+description = "人類思維模型引擎 — 五層認知架構"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.0",
+    "chromadb>=0.5",
+    "pyyaml>=6.0",
+    "sentence-transformers>=3.0",
+    "click>=8.0",
+    "openai>=1.0",
+]
+
+[project.scripts]
+mind-spiral = "engine.cli:cli"
+
+[tool.setuptools.packages.find]
+include = ["engine*"]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"

@@ -1,0 +1,136 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Identity Core (Layer 5)",
+  "description": "身份核心：在所有 Context Frame 中都會出現的信念，就是 Identity。這一層最小（5-15 條），但它們是所有決策的底層作業系統。不是人宣告的，是系統從 Layer 2-4 的交叉比對中自動辨識的：當一個 conviction 在幾乎所有 frame 都被激活，它就是 identity level。",
+  "type": "object",
+  "required": ["owner_id", "identity_id", "core_belief", "conviction_id", "universality", "expressions"],
+  "additionalProperties": false,
+  "properties": {
+
+    "owner_id": {
+      "type": "string",
+      "description": "使用者 ID，用於 multi-tenant 資料隔離"
+    },
+
+    "identity_id": {
+      "type": "string",
+      "description": "唯一 ID，格式: id_{seq}，例如 id_001。故意簡短——identity 數量很少。"
+    },
+
+    "core_belief": {
+      "type": "string",
+      "maxLength": 150,
+      "description": "用一句話表達的核心信念。這是 使用者 最本質的東西，拿掉這一條他就不是他了。例如：'教育可以改變一個人的人生軌跡'"
+    },
+
+    "conviction_id": {
+      "type": "string",
+      "description": "對應的 Layer 2 conviction_id。Identity 是 conviction 的最高等級，不是獨立的資料。"
+    },
+
+    "universality": {
+      "type": "object",
+      "required": ["active_in_frames", "total_active_frames", "coverage"],
+      "additionalProperties": false,
+      "description": "普遍性——在多少個 context frame 中出現",
+      "properties": {
+        "active_in_frames": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "在哪些 frame_id 中被激活"
+        },
+        "total_active_frames": {
+          "type": "integer",
+          "description": "活躍 frame 總數"
+        },
+        "coverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "覆蓋率 = active_in_frames / total_active_frames。>0.8 才有資格成為 identity。"
+        }
+      }
+    },
+
+    "expressions": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "required": ["frame_id", "how_it_manifests"],
+        "additionalProperties": false,
+        "properties": {
+          "frame_id": { "type": "string" },
+          "how_it_manifests": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "在這個情境下，這個核心信念如何表現。同一個 identity 在不同 frame 下有不同的表現形式。例如：'教育改變人生' 在銷售情境表現為 '強調課程的長期價值'，在帶人情境表現為 '給框架而非答案'。"
+          }
+        }
+      },
+      "description": "這個核心信念在不同情境下的具體表現方式。這是 OpenClaw 個性化回應的關鍵——同一個價值觀，根據對話對象和情境，用不同方式呈現。"
+    },
+
+    "origin_story": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "這個核心信念的起源（如果可追溯）",
+      "properties": {
+        "earliest_signal": {
+          "type": "string",
+          "description": "最早出現這個信念的 signal_id"
+        },
+        "formation_narrative": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "這個信念是怎麼形成的。例如：'從自己小時候被一位老師啟蒙的經歷'"
+        },
+        "key_reinforcing_events": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "properties": {
+              "signal_id": { "type": "string" },
+              "event_description": { "type": "string", "maxLength": 100 }
+            }
+          },
+          "description": "強化這個信念的關鍵事件"
+        }
+      }
+    },
+
+    "non_negotiable": {
+      "type": "boolean",
+      "description": "是否不可妥協。true = 即使有強力反證也不會改變（定義性的）；false = 極度堅定但理論上可修正"
+    },
+
+    "stability": {
+      "type": "object",
+      "required": ["held_since", "consistency_score"],
+      "additionalProperties": false,
+      "properties": {
+        "held_since": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "description": "從什麼時候開始穩定持有這個信念"
+        },
+        "consistency_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "一致性分數。從時間序列計算——是否曾經動搖過？1.0 = 從未動搖"
+        },
+        "last_challenged": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "description": "最近一次被挑戰是什麼時候"
+        },
+        "survived_challenges": {
+          "type": "integer",
+          "description": "被挑戰後仍然堅持的次數"
+        }
+      }
+    }
+  }
+}
