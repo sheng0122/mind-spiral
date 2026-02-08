@@ -81,7 +81,10 @@ Joey 是 Mind Spiral 的第一個使用者。16 的 `process_*.py` 負責把 Joe
 │   ├── trace_extractor.py       ← Layer 3 推理軌跡提取（v2 分組模式）
 │   ├── contradiction_alert.py   ← 矛盾偵測 + LLM 信心過濾
 │   ├── decision_tracker.py      ← 決策追蹤 + outcome 螺旋回饋
-│   └── daily_batch.py           ← 每日/每週 orchestrator
+│   ├── daily_batch.py           ← 每日/每週 orchestrator
+│   ├── frame_clusterer.py       ← Layer 4 情境框架聚類
+│   ├── identity_scanner.py      ← Layer 5 身份核心掃描
+│   └── query_engine.py          ← 五層感知 RAG（反射匹配 + embedding）
 ├── browser-ext/                 ← Chrome 擴充套件（Phase 2）
 ├── line-bot/                    ← LINE Bot（主動觸碰出口）
 ├── config/
@@ -101,27 +104,25 @@ conviction detection（embedding 聚類 + 五種共鳴 + 幻覺過濾）、trace
 
 **Joey 數據現況**：2,737 signals → 46 convictions → 392 traces
 
-### Phase 2 — 被動擷取 + 增量優化
+### Phase 2 — 上層模型 + 數位分身 ← 進行中
 
-| 項目 | 說明 | 控制理論概念 |
+瀏覽器插件延後，優先用既有資料建構上層模型。
+
+| 項目 | 說明 | 狀態 |
 |------|------|---|
-| 瀏覽器插件（搜尋/點擊/停留/畫線） | 最強的 input signal 來源 | — |
-| 搜尋鏈偵測 | 連續搜尋 = 探索路徑 = reasoning trace 原始素材 | — |
-| Signal 預過濾 | ingest 時用 embedding 相似度快篩：近似已知 conviction 的直接 +reinforcement，重複度太高的標記 redundant | **雙速架構**（便宜過濾） |
-| Conviction 增量更新 | 新 signal 進來時增量比對，不用每次全量 detect | **雙速架構**（增量內迴圈） |
-| 信念漂移偵測 | 定期重算 conviction embedding，方向變化 > 閾值 → 警報 | **漂移偵測** |
+| frame_clusterer.py | 從 traces 聚類情境框架（Layer 4） | ✅ |
+| identity_scanner.py | 跨 frame 覆蓋率篩選（Layer 5） | ✅ |
+| query_engine.py | 五層感知 RAG + 反射匹配 | ✅ |
+| Signal 預過濾 | ingest 時用 embedding 快篩，增量 conviction 更新 | 待做 |
+| 信念漂移偵測 | 定期重算 conviction embedding，方向變化 > 閾值 → 警報 | 待做 |
+| 動態 strength 調整 | outcome 回饋時根據累積趨勢動態計算，取代固定 ±0.05（PID） | 待做 |
 
-### Phase 3 — 數位分身（閉環控制）
+### Phase 3 — 被動擷取（延後）
 
-| 項目 | 說明 | 控制理論概念 |
-|------|------|---|
-| frame_clusterer.py | 從 traces 聚類情境框架（Layer 4） | — |
-| identity_scanner.py | 跨 frame 覆蓋率篩選（Layer 5） | — |
-| query_engine.py | 五層感知 RAG：問題 → frame → conviction → trace → 回應 | **航向保持**（回答不偏離 identity） |
-| Frame 反射匹配 | 關鍵字命中 trigger_patterns → 跳過 LLM 直接激活 frame | **反射系統** |
-| 動態 strength 調整 | outcome 回饋時根據累積趨勢動態計算調整量，取代固定 ±0.05 | **PID 控制** |
-| Trace 連貫性分數 | 相鄰 trace 的推理風格穩定度 → 思維慣性 vs 轉變訊號 | **守衛系統** |
-| Identity 約束檢查 | 生成回應前檢查是否違反 identity core → 違反則回溯修正 | **航向保持** |
+| 項目 | 說明 |
+|------|------|
+| 瀏覽器插件（搜尋/點擊/停留/畫線） | 最強的 input signal 來源 |
+| 搜尋鏈偵測 | 連續搜尋 = 探索路徑 = reasoning trace 原始素材 |
 
 ### Phase 4 — 多人 + 產品化
 
@@ -158,6 +159,10 @@ mind-spiral followups --owner joey       # 待追蹤決策
 mind-spiral outcome --owner joey --trace-id xxx --result positive --note "成效不錯"
 mind-spiral daily --owner joey           # 每日整理
 mind-spiral weekly --owner joey          # 每週報告
+mind-spiral cluster --owner joey         # 聚類情境框架（Layer 4）
+mind-spiral scan-identity --owner joey   # 掃描身份核心（Layer 5）
+mind-spiral query --owner joey "定價怎麼看？"  # 五層感知查詢
+mind-spiral query --owner joey --caller alice "定價怎麼看？"  # 帶提問者身份
 
 # 全量跑
 uv run python run_full_extract.py

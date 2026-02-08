@@ -202,5 +202,75 @@ def weekly(owner: str):
         click.echo("本週無顯著變化。")
 
 
+@cli.command(name="cluster")
+@click.option("--owner", required=True, help="使用者 ID")
+@click.option("--min-traces", default=3, help="每組最少 traces 數")
+def cluster_cmd(owner: str, min_traces: int):
+    """從 traces 聚類情境框架（Layer 4）"""
+    from engine.frame_clusterer import cluster as run_cluster
+
+    config = load_config()
+    click.echo(f"[{owner}] 開始聚類情境框架...")
+    new_frames = run_cluster(owner, config, min_traces=min_traces)
+
+    if not new_frames:
+        click.echo("沒有新的情境框架")
+        return
+
+    click.echo(f"\n=== 聚類出 {len(new_frames)} 個情境框架 ===")
+    for f in new_frames:
+        click.echo(f"\n  [{f.frame_id}] {f.name}")
+        click.echo(f"  描述: {f.description[:80]}")
+        click.echo(f"  推理風格: {f.reasoning_patterns.preferred_style}")
+        click.echo(f"  主要信念: {len(f.conviction_profile.primary_convictions)} 個")
+        if f.voice and f.voice.tone:
+            click.echo(f"  語氣: {f.voice.tone}")
+
+
+@cli.command(name="scan-identity")
+@click.option("--owner", required=True, help="使用者 ID")
+def scan_identity_cmd(owner: str):
+    """掃描身份核心（Layer 5）"""
+    from engine.identity_scanner import scan as run_scan
+
+    config = load_config()
+    click.echo(f"[{owner}] 開始掃描身份核心...")
+    new_identities = run_scan(owner, config)
+
+    if not new_identities:
+        click.echo("沒有新的身份核心（可能 frames 不足，或沒有 conviction 達到 80% 覆蓋率）")
+        return
+
+    click.echo(f"\n=== 發現 {len(new_identities)} 個身份核心 ===")
+    for i in new_identities:
+        click.echo(f"\n  [{i.identity_id}] {i.core_belief}")
+        click.echo(f"  conviction: {i.conviction_id}")
+        click.echo(f"  覆蓋率: {i.universality.coverage:.0%}（{len(i.universality.active_in_frames)}/{i.universality.total_active_frames} frames）")
+        click.echo(f"  不可妥協: {'是' if i.non_negotiable else '否'}")
+
+
+@cli.command(name="query")
+@click.option("--owner", required=True, help="使用者 ID")
+@click.option("--caller", default=None, help="提問者身份")
+@click.argument("question")
+def query_cmd(owner: str, caller: str | None, question: str):
+    """用五層感知回答問題（數位分身）"""
+    from engine.query_engine import query as run_query
+
+    config = load_config()
+    click.echo(f"[{owner}] 五層感知查詢中...")
+    result = run_query(owner, question, caller=caller, config=config)
+
+    click.echo(f"\n--- 回應 ---")
+    click.echo(result["response"])
+    click.echo(f"\n--- 查詢資訊 ---")
+    click.echo(f"  匹配 frame: {result['matched_frame'] or '無'}（{result['match_method'] or 'N/A'}）")
+    click.echo(f"  激活信念: {len(result['activated_convictions'])} 個")
+    for c in result["activated_convictions"][:3]:
+        click.echo(f"    - {c[:60]}")
+    click.echo(f"  參考軌跡: {result['relevant_traces']} 個")
+    click.echo(f"  身份約束: {len(result['identity_constraints'])} 個")
+
+
 if __name__ == "__main__":
     cli()

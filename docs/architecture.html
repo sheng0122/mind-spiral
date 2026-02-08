@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mind Spiral — 架構總覽</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #0a0a0f;
+    color: #e0e0e0;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* Hero */
+  .hero {
+    text-align: center;
+    padding: 80px 20px 40px;
+    background: linear-gradient(180deg, #0a0a1a 0%, #0a0a0f 100%);
+  }
+  .hero h1 {
+    font-size: 3rem;
+    background: linear-gradient(135deg, #7c5cfc, #c084fc, #f472b6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 16px;
+    letter-spacing: 2px;
+  }
+  .hero .subtitle {
+    font-size: 1.2rem;
+    color: #9ca3af;
+    max-width: 700px;
+    margin: 0 auto 32px;
+  }
+  .hero .core-belief {
+    display: inline-block;
+    background: rgba(124, 92, 252, 0.1);
+    border: 1px solid rgba(124, 92, 252, 0.3);
+    border-radius: 12px;
+    padding: 16px 32px;
+    font-size: 1.1rem;
+    color: #c084fc;
+    max-width: 600px;
+  }
+
+  /* Purpose Section */
+  .purpose {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 60px 20px;
+  }
+  .purpose h2 {
+    font-size: 1.8rem;
+    color: #c084fc;
+    margin-bottom: 24px;
+    text-align: center;
+  }
+  .purpose-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 40px;
+  }
+  .purpose-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 24px;
+  }
+  .purpose-card h3 {
+    font-size: 1rem;
+    color: #9ca3af;
+    margin-bottom: 8px;
+  }
+  .purpose-card p {
+    font-size: 1.05rem;
+    color: #e0e0e0;
+  }
+  .purpose-card .emoji { font-size: 1.5rem; margin-bottom: 8px; display: block; }
+
+  /* Spiral Container */
+  .spiral-section {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 20px 80px;
+  }
+  .spiral-section > h2 {
+    text-align: center;
+    font-size: 1.8rem;
+    color: #c084fc;
+    margin-bottom: 12px;
+  }
+  .spiral-section > p {
+    text-align: center;
+    color: #9ca3af;
+    margin-bottom: 48px;
+    font-size: 1rem;
+  }
+
+  /* Layer */
+  .layer {
+    position: relative;
+    margin-bottom: 0;
+  }
+  .layer-box {
+    border-radius: 16px;
+    padding: 32px;
+    position: relative;
+    z-index: 2;
+  }
+  .layer-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .layer-badge {
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: #fff;
+  }
+  .layer-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+  }
+  .layer-subtitle {
+    font-size: 0.9rem;
+    opacity: 0.7;
+  }
+  .layer-desc {
+    margin-bottom: 20px;
+    font-size: 1rem;
+    line-height: 1.7;
+    color: #d1d5db;
+  }
+  .layer-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .detail-block {
+    background: rgba(0,0,0,0.2);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .detail-block h4 {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    opacity: 0.6;
+  }
+  .detail-block ul {
+    list-style: none;
+    padding: 0;
+  }
+  .detail-block li {
+    padding: 3px 0;
+    font-size: 0.95rem;
+  }
+  .detail-block li::before {
+    content: "→ ";
+    opacity: 0.4;
+  }
+  .detail-block code {
+    background: rgba(255,255,255,0.08);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+  }
+
+  /* Layer Colors */
+  .layer-1 .layer-box { background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(59,130,246,0.04)); border: 1px solid rgba(59,130,246,0.25); }
+  .layer-1 .layer-badge { background: #3b82f6; }
+  .layer-1 .layer-title { color: #60a5fa; }
+
+  .layer-2 .layer-box { background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(16,185,129,0.04)); border: 1px solid rgba(16,185,129,0.25); }
+  .layer-2 .layer-badge { background: #10b981; }
+  .layer-2 .layer-title { color: #34d399; }
+
+  .layer-3 .layer-box { background: linear-gradient(135deg, rgba(245,158,11,0.12), rgba(245,158,11,0.04)); border: 1px solid rgba(245,158,11,0.25); }
+  .layer-3 .layer-badge { background: #f59e0b; }
+  .layer-3 .layer-title { color: #fbbf24; }
+
+  .layer-4 .layer-box { background: linear-gradient(135deg, rgba(239,68,68,0.12), rgba(239,68,68,0.04)); border: 1px solid rgba(239,68,68,0.25); }
+  .layer-4 .layer-badge { background: #ef4444; }
+  .layer-4 .layer-title { color: #f87171; }
+
+  .layer-5 .layer-box { background: linear-gradient(135deg, rgba(168,85,247,0.12), rgba(168,85,247,0.04)); border: 1px solid rgba(168,85,247,0.25); }
+  .layer-5 .layer-badge { background: #a855f7; }
+  .layer-5 .layer-title { color: #c084fc; }
+
+  /* Connector */
+  .connector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 0;
+    position: relative;
+    z-index: 1;
+  }
+  .connector-line {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .connector-arrow {
+    font-size: 1.2rem;
+    opacity: 0.4;
+  }
+  .connector-label {
+    font-size: 0.8rem;
+    color: #6b7280;
+    background: rgba(255,255,255,0.05);
+    padding: 4px 14px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+
+  /* Control Loops Section */
+  .loops-section {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 60px 20px 80px;
+  }
+  .loops-section h2 {
+    text-align: center;
+    font-size: 1.8rem;
+    color: #c084fc;
+    margin-bottom: 12px;
+  }
+  .loops-section > p {
+    text-align: center;
+    color: #9ca3af;
+    margin-bottom: 40px;
+  }
+  .loops-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+  }
+  .loop-card {
+    border-radius: 16px;
+    padding: 28px;
+    text-align: center;
+  }
+  .loop-card h3 {
+    font-size: 1.15rem;
+    margin-bottom: 12px;
+  }
+  .loop-card .loop-flow {
+    font-size: 0.9rem;
+    color: #d1d5db;
+    line-height: 1.8;
+    margin-bottom: 16px;
+  }
+  .loop-card .loop-goal {
+    font-size: 0.85rem;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: rgba(0,0,0,0.3);
+  }
+  .loop-1 { background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); }
+  .loop-1 h3 { color: #34d399; }
+  .loop-2 { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); }
+  .loop-2 h3 { color: #f87171; }
+  .loop-3 { background: rgba(168,85,247,0.08); border: 1px solid rgba(168,85,247,0.2); }
+  .loop-3 h3 { color: #c084fc; }
+
+  /* Phase Section */
+  .phase-section {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 60px 20px 80px;
+  }
+  .phase-section h2 {
+    text-align: center;
+    font-size: 1.8rem;
+    color: #c084fc;
+    margin-bottom: 40px;
+  }
+  .phase-timeline {
+    position: relative;
+    padding-left: 40px;
+  }
+  .phase-timeline::before {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: rgba(255,255,255,0.1);
+  }
+  .phase-item {
+    position: relative;
+    margin-bottom: 32px;
+    padding: 20px 24px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+  }
+  .phase-item::before {
+    content: '';
+    position: absolute;
+    left: -33px;
+    top: 28px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid;
+  }
+  .phase-item.done::before { background: #10b981; border-color: #10b981; }
+  .phase-item.current::before { background: #f59e0b; border-color: #f59e0b; box-shadow: 0 0 8px rgba(245,158,11,0.5); }
+  .phase-item.future::before { background: transparent; border-color: #6b7280; }
+  .phase-item h3 { font-size: 1.15rem; margin-bottom: 8px; }
+  .phase-item.done h3 { color: #34d399; }
+  .phase-item.current h3 { color: #fbbf24; }
+  .phase-item.future h3 { color: #9ca3af; }
+  .phase-item p { font-size: 0.95rem; color: #9ca3af; }
+  .phase-tag {
+    display: inline-block;
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  .tag-done { background: rgba(16,185,129,0.15); color: #34d399; }
+  .tag-next { background: rgba(245,158,11,0.15); color: #fbbf24; }
+  .tag-future { background: rgba(107,114,128,0.15); color: #9ca3af; }
+
+  /* Data Stats */
+  .stats-bar {
+    display: flex;
+    gap: 24px;
+    justify-content: center;
+    padding: 24px 0;
+    margin: 20px 0 0;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .stat {
+    text-align: center;
+  }
+  .stat-num {
+    font-size: 1.8rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #7c5cfc, #c084fc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .stat-label {
+    font-size: 0.8rem;
+    color: #6b7280;
+    margin-top: 2px;
+  }
+
+  /* Query Flow */
+  .query-section {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 60px 20px 80px;
+  }
+  .query-section h2 {
+    text-align: center;
+    font-size: 1.8rem;
+    color: #c084fc;
+    margin-bottom: 12px;
+  }
+  .query-section > p {
+    text-align: center;
+    color: #9ca3af;
+    margin-bottom: 40px;
+  }
+  .query-flow {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    overflow-x: auto;
+    padding: 8px 0;
+  }
+  .query-step {
+    flex: 1;
+    min-width: 160px;
+    padding: 20px 16px;
+    text-align: center;
+    border-radius: 12px;
+    position: relative;
+  }
+  .query-step .step-num {
+    font-size: 0.75rem;
+    opacity: 0.5;
+    margin-bottom: 6px;
+  }
+  .query-step h4 {
+    font-size: 1rem;
+    margin-bottom: 6px;
+  }
+  .query-step p {
+    font-size: 0.85rem;
+    opacity: 0.7;
+  }
+  .query-arrow {
+    display: flex;
+    align-items: center;
+    font-size: 1.5rem;
+    opacity: 0.3;
+    flex-shrink: 0;
+    padding: 0 4px;
+  }
+  .qs-1 { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); }
+  .qs-1 h4 { color: #f87171; }
+  .qs-2 { background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); }
+  .qs-2 h4 { color: #34d399; }
+  .qs-3 { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2); }
+  .qs-3 h4 { color: #fbbf24; }
+  .qs-4 { background: rgba(168,85,247,0.08); border: 1px solid rgba(168,85,247,0.2); }
+  .qs-4 h4 { color: #c084fc; }
+  .qs-5 { background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); }
+  .qs-5 h4 { color: #60a5fa; }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding: 40px 20px;
+    color: #4b5563;
+    font-size: 0.85rem;
+    border-top: 1px solid rgba(255,255,255,0.05);
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .hero h1 { font-size: 2rem; }
+    .purpose-grid { grid-template-columns: 1fr; }
+    .layer-details { grid-template-columns: 1fr; }
+    .loops-grid { grid-template-columns: 1fr; }
+    .query-flow { flex-direction: column; }
+    .query-arrow { justify-content: center; transform: rotate(90deg); }
+  }
+</style>
+</head>
+<body>
+
+<!-- Hero -->
+<section class="hero">
+  <h1>Mind Spiral</h1>
+  <p class="subtitle">
+    被動觀察一個人的日常行為，自動建構五層思維模型，<br>
+    讓 AI 數位分身能用<strong>這個人的方式</strong>思考、推理、回應。
+  </p>
+  <div class="core-belief">
+    一個人真正相信什麼，不看他宣稱什麼，<br>看他<strong>輸入和輸出的交叉收斂</strong>。
+  </div>
+  <div class="stats-bar">
+    <div class="stat"><div class="stat-num">2,737</div><div class="stat-label">Signals</div></div>
+    <div class="stat"><div class="stat-num">46</div><div class="stat-label">Convictions</div></div>
+    <div class="stat"><div class="stat-num">392</div><div class="stat-label">Traces</div></div>
+    <div class="stat"><div class="stat-num">5</div><div class="stat-label">Layers</div></div>
+  </div>
+</section>
+
+<!-- Purpose -->
+<section class="purpose">
+  <h2>為什麼要做這件事？</h2>
+  <div class="purpose-grid">
+    <div class="purpose-card">
+      <span class="emoji">🎯</span>
+      <h3>問題</h3>
+      <p>創業者、講師每天產生大量想法，散落在會議、聊天、搜尋、筆記中。沒有人幫他們整理「自己到底相信什麼」。</p>
+    </div>
+    <div class="purpose-card">
+      <span class="emoji">🌀</span>
+      <h3>解法</h3>
+      <p>從已有行為中被動擷取信號，用交叉比對讓信念自己浮現。不需要填問卷、寫日記，使用者每天花 0-2 分鐘。</p>
+    </div>
+    <div class="purpose-card">
+      <span class="emoji">🤖</span>
+      <h3>終極目標</h3>
+      <p>建構出足夠精確的思維模型，讓 AI 數位分身能在特定情境下，用這個人的信念、推理風格和語氣回應。</p>
+    </div>
+    <div class="purpose-card">
+      <span class="emoji">🔄</span>
+      <h3>閉環系統</h3>
+      <p>不只是被動觀察——決策會被追蹤，結果回饋會修正信念強度。系統會越來越準確，這就是「螺旋」。</p>
+    </div>
+  </div>
+</section>
+
+<!-- Five Layers -->
+<section class="spiral-section">
+  <h2>五層思維模型</h2>
+  <p>由下而上湧現，由上而下約束。每一層都可追溯到下一層的證據來源。</p>
+
+  <!-- Layer 1 -->
+  <div class="layer layer-1">
+    <div class="layer-box">
+      <div class="layer-header">
+        <div class="layer-badge">L1</div>
+        <div>
+          <div class="layer-title">Signal 信號層</div>
+          <div class="layer-subtitle">所有接觸過的東西，標記 input / output</div>
+        </div>
+      </div>
+      <div class="layer-desc">
+        最底層的原始素材。每一個搜尋、每一句話、每一個點擊都是一個 signal。
+        關鍵不在於單一信號，而在於 <strong>input（讀了什麼）和 output（說了什麼）的交叉</strong>。
+      </div>
+      <div class="layer-details">
+        <div class="detail-block">
+          <h4>Input 類型</h4>
+          <ul>
+            <li><code>searched</code> 主動搜尋 — 最強興趣信號</li>
+            <li><code>selected</code> 搜尋後點擊 — 判斷偏好</li>
+            <li><code>highlighted</code> 畫線 — 認同或想記住</li>
+            <li><code>consumed</code> 讀過但沒標記</li>
+            <li><code>received</code> 別人告訴你的</li>
+          </ul>
+        </div>
+        <div class="detail-block">
+          <h4>Output 類型</h4>
+          <ul>
+            <li><code>spoken_spontaneous</code> 即興說出 — 最真實</li>
+            <li><code>written_deliberate</code> 刻意寫 — 經過思考</li>
+            <li><code>written_structured</code> 課程/簡報</li>
+            <li><code>decided</code> 做了決定 — 行動層面</li>
+            <li><code>acted</code> 實際執行 — 最強 output</li>
+          </ul>
+        </div>
+      </div>
+      <div class="detail-block" style="margin-top:16px">
+        <h4>程式碼路徑</h4>
+        <ul>
+          <li>Schema: <code>schemas/signal.json</code></li>
+          <li>引擎: <code>engine/signal_store.py</code> — CRUD + ChromaDB embedding 索引</li>
+          <li>儲存: <code>data/{owner_id}/signals.jsonl</code></li>
+          <li>來源: 各 instance 的輸入管線（如 <code>16_moltbot_joey/process_*.py</code>）</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Connector 1→2 -->
+  <div class="connector">
+    <div class="connector-line">
+      <div class="connector-arrow">▲</div>
+      <div class="connector-label">embedding 聚類 + 五種共鳴收斂偵測</div>
+      <div class="connector-arrow">▲</div>
+    </div>
+  </div>
+
+  <!-- Layer 2 -->
+  <div class="layer layer-2">
+    <div class="layer-box">
+      <div class="layer-header">
+        <div class="layer-badge">L2</div>
+        <div>
+          <div class="layer-title">Conviction 信念層</div>
+          <div class="layer-subtitle">被反覆強化的觀點，有強度，會演化</div>
+        </div>
+      </div>
+      <div class="layer-desc">
+        當同一個主題的 signals 在不同時間、不同情境、不同模態中反覆出現，
+        就從「你提到過的」升級為「你真正相信的」。信念有 0-1 的連續強度分數。
+      </div>
+      <div class="layer-details">
+        <div class="detail-block">
+          <h4>五種共鳴偵測</h4>
+          <ul>
+            <li>Input-Output Convergence — 讀到 X，後來說了 X'</li>
+            <li>Action Alignment — 說了 X，然後真的做了</li>
+            <li>Temporal Persistence — 一月說，三月又說</li>
+            <li>Cross-Context Consistency — 對客戶說、對團隊也說</li>
+            <li>Spontaneous Emergence — 沒人問，主動提起</li>
+          </ul>
+        </div>
+        <div class="detail-block">
+          <h4>強度等級</h4>
+          <ul>
+            <li><strong>emerging</strong> (0-0.3) 剛出現，可能只是試探</li>
+            <li><strong>developing</strong> (0.3-0.6) 多次出現但尚未穩定</li>
+            <li><strong>established</strong> (0.6-0.85) 跨情境一致</li>
+            <li><strong>core</strong> (0.85-1.0) 接近 identity level</li>
+          </ul>
+        </div>
+      </div>
+      <div class="detail-block" style="margin-top:16px">
+        <h4>程式碼路徑</h4>
+        <ul>
+          <li>Schema: <code>schemas/conviction.json</code></li>
+          <li>引擎: <code>engine/conviction_detector.py</code> — AgglomerativeClustering + 共鳴 + LLM 歸納 + 幻覺過濾</li>
+          <li>矛盾: <code>engine/contradiction_alert.py</code> — cosine 比對 + LLM 信心分數</li>
+          <li>儲存: <code>data/{owner_id}/convictions.jsonl</code></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Connector 1→3 & 2↔3 -->
+  <div class="connector">
+    <div class="connector-line">
+      <div class="connector-arrow">▲</div>
+      <div class="connector-label">從 output signal 的論述段落提取 + conviction 交叉引用</div>
+      <div class="connector-arrow">▲</div>
+    </div>
+  </div>
+
+  <!-- Layer 3 -->
+  <div class="layer layer-3">
+    <div class="layer-box">
+      <div class="layer-header">
+        <div class="layer-badge">L3</div>
+        <div>
+          <div class="layer-title">Reasoning Trace 推理軌跡</div>
+          <div class="layer-subtitle">情境 → 信念激活 → 推理步驟 → 結論 → 回饋</div>
+        </div>
+      </div>
+      <div class="layer-desc">
+        不只記錄「他怎麼想」，更記錄「他面對這個情境時，啟動了哪些信念、走了什麼推理路徑、得出什麼結論」。
+        這是數位分身模仿「怎麼想」的關鍵。<strong>outcome 回饋會螺旋回去修正 conviction 的強度。</strong>
+      </div>
+      <div class="layer-details">
+        <div class="detail-block">
+          <h4>推理結構</h4>
+          <ul>
+            <li><strong>Trigger</strong> — 什麼情境觸發了推理</li>
+            <li><strong>Activated Convictions</strong> — 啟動了哪些信念、各自扮演什麼角色</li>
+            <li><strong>Reasoning Path</strong> — 推理步驟序列 + 風格（analytical / storytelling / ...）</li>
+            <li><strong>Conclusion</strong> — 最終決定 + 信心 + 替代方案</li>
+            <li><strong>Outcome</strong> — 後來怎樣 → 回饋到 conviction strength</li>
+          </ul>
+        </div>
+        <div class="detail-block">
+          <h4>推理風格</h4>
+          <ul>
+            <li><code>analytical</code> 分析型</li>
+            <li><code>first_principles</code> 第一性原理</li>
+            <li><code>storytelling</code> 敘事型</li>
+            <li><code>socratic</code> 蘇格拉底式</li>
+            <li><code>empathy_driven</code> 同理驅動</li>
+            <li><code>pattern_matching</code> 模式匹配</li>
+          </ul>
+        </div>
+      </div>
+      <div class="detail-block" style="margin-top:16px">
+        <h4>程式碼路徑</h4>
+        <ul>
+          <li>Schema: <code>schemas/reasoning_trace.json</code></li>
+          <li>引擎: <code>engine/trace_extractor.py</code> — 按 (date, context) 分組 + batch LLM 提取</li>
+          <li>回饋: <code>engine/decision_tracker.py</code> — outcome 追蹤 + conviction strength 螺旋調整</li>
+          <li>儲存: <code>data/{owner_id}/traces.jsonl</code></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Connector 3→4 -->
+  <div class="connector">
+    <div class="connector-line">
+      <div class="connector-arrow">▲</div>
+      <div class="connector-label">相似 trace 聚類 → 情境框架湧現</div>
+      <div class="connector-arrow">▲</div>
+    </div>
+  </div>
+
+  <!-- Layer 4 -->
+  <div class="layer layer-4">
+    <div class="layer-box">
+      <div class="layer-header">
+        <div class="layer-badge">L4</div>
+        <div>
+          <div class="layer-title">Context Frame 情境框架</div>
+          <div class="layer-subtitle">不同場景下的信念激活組態 + 推理偏好 + 語氣</div>
+        </div>
+      </div>
+      <div class="layer-desc">
+        同一個人面對客戶 vs 面對團隊，會啟動不同的信念組合、用不同的推理方式、說不同風格的話。
+        這不是虛偽，是正常的情境適應。Context Frame 就是這個<strong>激活函數</strong>。
+        這是 query engine 匹配情境的核心。
+      </div>
+      <div class="layer-details">
+        <div class="detail-block">
+          <h4>Frame 組成</h4>
+          <ul>
+            <li><strong>trigger_patterns</strong> — 什麼情境激活此 frame（關鍵字 + 對象類型）</li>
+            <li><strong>primary_convictions</strong> — 激活的信念 + 激活權重</li>
+            <li><strong>suppressed_convictions</strong> — 被壓制的信念 + 原因</li>
+            <li><strong>reasoning_patterns</strong> — 偏好風格 + 典型步驟序列</li>
+            <li><strong>voice</strong> — 語氣、口頭禪、避免的說法</li>
+            <li><strong>effectiveness</strong> — 歷史成功率（從 trace outcome 統計）</li>
+          </ul>
+        </div>
+        <div class="detail-block">
+          <h4>範例 Frame</h4>
+          <ul>
+            <li>「高價銷售應對」— 面對客戶質疑價格時</li>
+            <li>「團隊決策」— 成員請示決定時</li>
+            <li>「教學引導」— 帶學生時</li>
+            <li>「個人反思」— 獨處思考時</li>
+          </ul>
+        </div>
+      </div>
+      <div class="detail-block" style="margin-top:16px">
+        <h4>程式碼路徑</h4>
+        <ul>
+          <li>Schema: <code>schemas/context_frame.json</code> ✅ 已完成</li>
+          <li>引擎: <code>engine/frame_clusterer.py</code> — ✅ 按 context 分組 + 統計 + LLM 生成 metadata</li>
+          <li>儲存: <code>data/{owner_id}/frames.jsonl</code></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Connector 4→5 -->
+  <div class="connector">
+    <div class="connector-line">
+      <div class="connector-arrow">▲</div>
+      <div class="connector-label">跨所有 frame 都出現的信念 → 升級為身份核心</div>
+      <div class="connector-arrow">▲</div>
+    </div>
+  </div>
+
+  <!-- Layer 5 -->
+  <div class="layer layer-5">
+    <div class="layer-box">
+      <div class="layer-header">
+        <div class="layer-badge">L5</div>
+        <div>
+          <div class="layer-title">Identity Core 身份核心</div>
+          <div class="layer-subtitle">定義「我是誰」的不可動搖信念，5-15 條</div>
+        </div>
+      </div>
+      <div class="layer-desc">
+        當一個 conviction 在 >80% 的 active frame 中都被激活，它就不再只是「某個情境下的信念」，
+        而是這個人的<strong>身份</strong>。這是數位分身的最終護欄——生成的任何回應都不能違反 Identity Core。
+      </div>
+      <div class="layer-details">
+        <div class="detail-block">
+          <h4>篩選標準</h4>
+          <ul>
+            <li>conviction 在 >80% 的 active frame 都被激活</li>
+            <li>strength score 通常 > 0.85</li>
+            <li>數量控制在 5-15 條</li>
+            <li>定期重新掃描（每月）</li>
+          </ul>
+        </div>
+        <div class="detail-block">
+          <h4>作用</h4>
+          <ul>
+            <li>Query Engine 生成回應前的最終檢查</li>
+            <li>違反 identity → 回溯修正（航向保持）</li>
+            <li>新 frame 形成時的約束條件</li>
+            <li>數位分身的「人格底線」</li>
+          </ul>
+        </div>
+      </div>
+      <div class="detail-block" style="margin-top:16px">
+        <h4>程式碼路徑</h4>
+        <ul>
+          <li>Schema: <code>schemas/identity_core.json</code> ✅ 已完成</li>
+          <li>引擎: <code>engine/identity_scanner.py</code> — ✅ 跨 frame 覆蓋率篩選 + LLM 生成 expressions</li>
+          <li>儲存: <code>data/{owner_id}/identity.json</code></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Control Loops -->
+<section class="loops-section">
+  <h2>三個閉環控制迴圈</h2>
+  <p>Mind Spiral 不只是被動觀察——它是一個有目標、有航向的閉環控制系統</p>
+  <div class="loops-grid">
+    <div class="loop-card loop-1">
+      <h3>迴圈 1：螺旋回饋</h3>
+      <div class="loop-flow">
+        決策產生<br>
+        ↓<br>
+        追蹤等待結果<br>
+        ↓<br>
+        outcome 回來<br>
+        ↓<br>
+        conviction strength 調整<br>
+        ↓<br>
+        影響下次推理
+      </div>
+      <div class="loop-goal">目標：讓 conviction 越來越準確反映現實</div>
+    </div>
+    <div class="loop-card loop-2">
+      <h3>迴圈 2：一致性維護</h3>
+      <div class="loop-flow">
+        新 conviction 出現<br>
+        ↓<br>
+        cosine 比對既有 convictions<br>
+        ↓<br>
+        偵測矛盾 / 演化 / 情境依賴<br>
+        ↓<br>
+        通知使用者確認<br>
+        ↓<br>
+        更新信念關係
+      </div>
+      <div class="loop-goal">目標：維護認知模型的內部一致性</div>
+    </div>
+    <div class="loop-card loop-3">
+      <h3>迴圈 3：查詢導航</h3>
+      <div class="loop-flow">
+        問題進來<br>
+        ↓<br>
+        匹配 Context Frame<br>
+        ↓<br>
+        激活 Conviction 組合<br>
+        ↓<br>
+        找推理路徑模板<br>
+        ↓<br>
+        Identity 檢查 → 生成回應
+      </div>
+      <div class="loop-goal">目標：生成「像這個人」的回答</div>
+    </div>
+  </div>
+</section>
+
+<!-- Query Flow -->
+<section class="query-section">
+  <h2>Query Engine — 五層感知導航</h2>
+  <p>當有人問「Joey 怎麼看定價？」時，引擎怎麼走</p>
+  <div class="query-flow">
+    <div class="query-step qs-1">
+      <div class="step-num">STEP 1</div>
+      <h4>Frame Matching</h4>
+      <p>匹配情境框架<br>→ 「高價銷售應對」</p>
+    </div>
+    <div class="query-arrow">→</div>
+    <div class="query-step qs-2">
+      <div class="step-num">STEP 2</div>
+      <h4>Conviction Activation</h4>
+      <p>激活信念組合<br>+ 各自權重</p>
+    </div>
+    <div class="query-arrow">→</div>
+    <div class="query-step qs-3">
+      <div class="step-num">STEP 3</div>
+      <h4>Trace Retrieval</h4>
+      <p>找類似情境的<br>推理路徑模板</p>
+    </div>
+    <div class="query-arrow">→</div>
+    <div class="query-step qs-4">
+      <div class="step-num">STEP 4</div>
+      <h4>Identity Check</h4>
+      <p>確認不違反<br>身份核心</p>
+    </div>
+    <div class="query-arrow">→</div>
+    <div class="query-step qs-5">
+      <div class="step-num">STEP 5</div>
+      <h4>Response</h4>
+      <p>用該 frame 的<br>語氣和推理風格生成</p>
+    </div>
+  </div>
+</section>
+
+<!-- Phase Timeline -->
+<section class="phase-section">
+  <h2>開發路線圖</h2>
+  <div class="phase-timeline">
+    <div class="phase-item done">
+      <h3>Phase 0 — 基礎建設 <span class="phase-tag tag-done">完成</span></h3>
+      <p>五層 Schema + Pydantic Models + Config + LLM 抽象層 + Signal Store + Joey atoms 遷移</p>
+    </div>
+    <div class="phase-item done">
+      <h3>Phase 1 — 核心螺旋 <span class="phase-tag tag-done">完成</span></h3>
+      <p>Conviction Detection + Trace Extraction + Decision Tracker + Contradiction Alert + Daily Batch</p>
+    </div>
+    <div class="phase-item current">
+      <h3>Phase 2 — 上層模型 + 數位分身 <span class="phase-tag tag-next">進行中</span></h3>
+      <p>Frame Clusterer ✅ + Identity Scanner ✅ + Query Engine ✅（反射匹配 + 航向保持）。待做：Signal 預過濾、信念漂移偵測、動態 Strength 調整（PID）</p>
+    </div>
+    <div class="phase-item future">
+      <h3>Phase 3 — 被動擷取（延後） <span class="phase-tag tag-future">延後</span></h3>
+      <p>瀏覽器插件（搜尋/點擊/停留/畫線）、搜尋鏈偵測</p>
+    </div>
+    <div class="phase-item future">
+      <h3>Phase 4 — 多人 + 產品化 <span class="phase-tag tag-future">規劃中</span></h3>
+      <p>Onboarding 流程、第二個使用者、信念演變視覺化、Web Dashboard</p>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  Mind Spiral — 18-mind-spiral &nbsp;|&nbsp; 引擎共用，每人一個思維模型 &nbsp;|&nbsp; 2026
+</footer>
+
+</body>
+</html>
