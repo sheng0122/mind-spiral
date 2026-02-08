@@ -1,15 +1,20 @@
-"""Trace Extractor — 從 output signals 中提取 Layer 3 推理軌跡"""
+"""Trace Extractor — 從 output signals 中提取 Layer 3 推理軌跡
+
+v2: 按 (date, context) 分組，把同一場景的 signals 合併送 LLM，
+讓 LLM 從整段對話/內容中提取推理軌跡。
+"""
 
 from __future__ import annotations
 
 import json
 import uuid
+from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
 from engine.config import get_owner_dir
 from engine.conviction_detector import _load_convictions
-from engine.llm import batch_llm, call_llm
+from engine.llm import batch_llm
 from engine.models import (
     ActivatedConviction,
     ReasoningPath,
@@ -33,6 +38,9 @@ _EXTRACTABLE_MODALITIES = {
     "decided",
 }
 
+# 每個 chunk 的最大 signals 數（避免 prompt 太長）
+_MAX_SIGNALS_PER_CHUNK = 30
+
 
 def _load_traces(owner_dir: Path) -> list[ReasoningTrace]:
     path = owner_dir / "traces.jsonl"
@@ -54,7 +62,6 @@ def _save_traces(owner_dir: Path, traces: list[ReasoningTrace]) -> None:
 
 
 def _build_conviction_context(convictions: list) -> str:
-    """建立 conviction 列表供 LLM 參考。"""
     if not convictions:
         return "（目前沒有已偵測到的信念）"
     lines = []
@@ -63,61 +70,92 @@ def _build_conviction_context(convictions: list) -> str:
     return "\n".join(lines)
 
 
-def _build_prompt(signal: Signal, conviction_context: str) -> str:
-    """建立單一 signal 的提取 prompt。"""
-    return f"""以下是一段表達內容：
+def _group_signals(signals: list[Signal]) -> list[tuple[str, str, list[Signal]]]:
+    """按 (date, context) 分組，大組再拆 chunk。回傳 [(date, context, signals), ...]"""
+    groups: dict[tuple[str, str], list[Signal]] = defaultdict(list)
+    for s in signals:
+        groups[(s.source.date, s.source.context)].append(s)
+
+    result = []
+    for (date, context), sigs in sorted(groups.items()):
+        # 大組拆 chunk
+        for i in range(0, len(sigs), _MAX_SIGNALS_PER_CHUNK):
+            chunk = sigs[i:i + _MAX_SIGNALS_PER_CHUNK]
+            result.append((date, context, chunk))
+    return result
+
+
+def _build_group_prompt(date: str, context: str, signals: list[Signal], conviction_context: str) -> str:
+    """建立一組 signals 的提取 prompt。"""
+    signal_lines = []
+    for i, s in enumerate(signals, 1):
+        meta = f"[{s.content.type}|{s.modality}|{s.content.confidence or '未標記'}]"
+        signal_lines.append(f"{i}. {meta} {s.content.text}")
+    signals_text = "\n".join(signal_lines)
+
+    return f"""以下是同一個人在同一場景中的多段表達：
+
+日期：{date}
+情境：{context}
+共 {len(signals)} 段：
+
+{signals_text}
 
 ---
-{signal.content.text}
----
-
-情境：{signal.source.context}
-日期：{signal.source.date}
-類型：{signal.content.type}
-信心程度：{signal.content.confidence or "未標記"}
 
 以下是這個人目前已知的信念清單：
 {conviction_context}
 
-請分析這段內容中的推理過程，輸出 JSON 格式（不要加 markdown 標記）：
+請從上面的內容中找出「有推理過程」的段落組合（某人面對一個問題→思考→得出結論），提取推理軌跡。
+
+注意：
+- 不是每段都有推理，只提取真正有推理過程的
+- 多段內容可能組成一個推理（例如：先描述問題，再分析，最後做決定）
+- 單獨的金句、引用、指令不算推理
+- 請標注每個 trace 用到了哪些段落編號（from_signals）
+
+輸出 JSON 格式（不要加 markdown 標記）：
 
 {{
-  "has_reasoning": true/false,
-  "trigger": {{
-    "situation": "觸發推理的情境描述（50字內）",
-    "stimulus_type": "question_received|problem_encountered|decision_required|opinion_challenged|opportunity_spotted|conflict_to_resolve|teaching_moment|self_reflection"
-  }},
-  "activated_convictions": [
+  "traces": [
     {{
-      "conviction_id": "從上方列表中選擇",
-      "role": "premise|framework|evidence|constraint|value_anchor|counterpoint",
-      "activation_note": "為什麼激活這個信念（30字內）"
-    }}
-  ],
-  "reasoning_path": {{
-    "steps": [
-      {{
-        "action": "empathize|reframe|analyze|compare|recall_experience|apply_framework|challenge_assumption|weigh_tradeoff|synthesize|decide",
-        "description": "這一步做了什麼（50字內）",
-        "uses_conviction": "conviction_id 或 null"
+      "from_signals": [1, 3, 5],
+      "trigger": {{
+        "situation": "觸發推理的情境描述（50字內）",
+        "stimulus_type": "question_received|problem_encountered|decision_required|opinion_challenged|opportunity_spotted|conflict_to_resolve|teaching_moment|self_reflection"
+      }},
+      "activated_convictions": [
+        {{
+          "conviction_id": "從上方信念列表中選擇",
+          "role": "premise|framework|evidence|constraint|value_anchor|counterpoint",
+          "activation_note": "為什麼激活這個信念（30字內）"
+        }}
+      ],
+      "reasoning_path": {{
+        "steps": [
+          {{
+            "action": "empathize|reframe|analyze|compare|recall_experience|apply_framework|challenge_assumption|weigh_tradeoff|synthesize|decide",
+            "description": "這一步做了什麼（50字內）",
+            "uses_conviction": "conviction_id 或 null"
+          }}
+        ],
+        "style": "analytical|intuitive|storytelling|socratic|first_principles|pattern_matching|empathy_driven"
+      }},
+      "conclusion": {{
+        "decision": "最終結論（80字內）",
+        "confidence": "high|medium|low|uncertain",
+        "alternative_considered": "考慮過但沒選的替代方案（50字內，可為 null）"
       }}
-    ],
-    "style": "analytical|intuitive|storytelling|socratic|first_principles|pattern_matching|empathy_driven"
-  }},
-  "conclusion": {{
-    "decision": "最終結論（80字內）",
-    "confidence": "high|medium|low|uncertain",
-    "alternative_considered": "考慮過但沒選的替代方案（50字內，可為 null）"
-  }}
+    }}
+  ]
 }}
 
-如果這段內容沒有明確的推理過程（只是陳述事實或隨口一提），請回傳：
-{{"has_reasoning": false}}"""
+如果整組內容都沒有明確的推理過程，請回傳：
+{{"traces": []}}"""
 
 
-def _parse_response(raw: str, signal: Signal) -> ReasoningTrace | None:
-    """解析 LLM 回應，轉成 ReasoningTrace。"""
-    # 清理可能的 markdown code block
+def _parse_group_response(raw: str, signals: list[Signal], date: str, context: str) -> list[ReasoningTrace]:
+    """解析 LLM 對一組 signals 的回應。"""
     cleaned = raw.strip()
     if cleaned.startswith("```"):
         cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
@@ -128,68 +166,87 @@ def _parse_response(raw: str, signal: Signal) -> ReasoningTrace | None:
     try:
         data = json.loads(cleaned)
     except json.JSONDecodeError:
-        return None
+        return []
 
-    if not data.get("has_reasoning"):
-        return None
+    raw_traces = data.get("traces", [])
+    if not raw_traces:
+        return []
 
-    try:
-        activated = []
-        for ac in data.get("activated_convictions", []):
-            activated.append(ActivatedConviction(
-                conviction_id=ac["conviction_id"],
-                role=ac["role"],
-                activation_note=ac.get("activation_note"),
-            ))
+    results = []
+    for rt in raw_traces:
+        try:
+            # 找出對應的 signal IDs
+            from_indices = rt.get("from_signals", [])
+            from_signal_ids = []
+            for idx in from_indices:
+                if 1 <= idx <= len(signals):
+                    from_signal_ids.append(signals[idx - 1].signal_id)
 
-        steps = []
-        for step in data["reasoning_path"]["steps"]:
-            steps.append(ReasoningStep(
-                action=step["action"],
-                description=step["description"],
-                uses_conviction=step.get("uses_conviction"),
-            ))
-        path = ReasoningPath(
-            steps=steps,
-            style=data["reasoning_path"]["style"],
-        )
+            activated = []
+            for ac in rt.get("activated_convictions", []):
+                activated.append(ActivatedConviction(
+                    conviction_id=ac["conviction_id"],
+                    role=ac["role"],
+                    activation_note=ac.get("activation_note"),
+                ))
 
-        conclusion = TraceConclusion(
-            decision=data["conclusion"]["decision"],
-            confidence=data["conclusion"]["confidence"],
-            alternative_considered=data["conclusion"].get("alternative_considered"),
-            output_signal=signal.signal_id,
-        )
+            steps = []
+            for step in rt["reasoning_path"]["steps"]:
+                steps.append(ReasoningStep(
+                    action=step["action"],
+                    description=step["description"],
+                    uses_conviction=step.get("uses_conviction"),
+                ))
+            path = ReasoningPath(
+                steps=steps,
+                style=rt["reasoning_path"]["style"],
+            )
 
-        return ReasoningTrace(
-            owner_id=signal.owner_id,
-            trace_id=f"trace_{uuid.uuid4().hex[:8]}",
-            trigger=TraceTrigger(
-                situation=data["trigger"]["situation"],
-                stimulus_type=data["trigger"]["stimulus_type"],
-                from_signal=signal.signal_id,
-            ),
-            activated_convictions=activated,
-            reasoning_path=path,
-            conclusion=conclusion,
-            source=TraceSource(
-                date=signal.source.date,
-                source_file=signal.source.source_file,
-                participants=signal.source.participants,
-            ),
-        )
+            conclusion = TraceConclusion(
+                decision=rt["conclusion"]["decision"],
+                confidence=rt["conclusion"]["confidence"],
+                alternative_considered=rt["conclusion"].get("alternative_considered"),
+                output_signal=from_signal_ids[0] if from_signal_ids else None,
+            )
 
-    except (KeyError, ValueError):
-        return None
+            owner_id = signals[0].owner_id
+            source_file = signals[0].source.source_file if signals else None
+            participants = signals[0].source.participants if signals else None
+
+            trace = ReasoningTrace(
+                owner_id=owner_id,
+                trace_id=f"trace_{uuid.uuid4().hex[:8]}",
+                trigger=TraceTrigger(
+                    situation=rt["trigger"]["situation"],
+                    stimulus_type=rt["trigger"]["stimulus_type"],
+                    from_signal=from_signal_ids[0] if from_signal_ids else None,
+                ),
+                activated_convictions=activated,
+                reasoning_path=path,
+                conclusion=conclusion,
+                source=TraceSource(
+                    date=date,
+                    source_file=source_file,
+                    participants=participants,
+                ),
+            )
+            results.append(trace)
+
+        except (KeyError, ValueError, IndexError):
+            continue
+
+    return results
 
 
 def extract(owner_id: str, config: dict, limit: int | None = None) -> list[ReasoningTrace]:
     """主入口：從 output signals 提取推理軌跡。
 
+    v2: 按 (date, context) 分組送 LLM，從整段對話中提取推理軌跡。
+
     1. 篩選適合的 output signals
-    2. 排除已提取過的
-    3. 載入 convictions 作為 LLM context
-    4. 用 batch_llm 並行提取（claude_code backend）或循序提取
+    2. 排除已處理過的分組
+    3. 按 (date, context) 分組
+    4. 用 batch_llm 並行處理各組
     5. 儲存到 traces.jsonl
     """
     store = SignalStore(config, owner_id)
@@ -204,6 +261,7 @@ def extract(owner_id: str, config: dict, limit: int | None = None) -> list[Reaso
     if not candidates:
         return []
 
+    # 排除已提取過的 signals
     existing_traces = _load_traces(owner_dir)
     extracted_signal_ids = {
         t.trigger.from_signal
@@ -215,9 +273,12 @@ def extract(owner_id: str, config: dict, limit: int | None = None) -> list[Reaso
     if not candidates:
         return []
 
-    # 限制處理數量
+    # 按 (date, context) 分組
+    groups = _group_signals(candidates)
+
+    # 限制處理組數
     if limit:
-        candidates = candidates[:limit]
+        groups = groups[:limit]
 
     # 載入 convictions 作為 context
     convictions = _load_convictions(owner_dir)
@@ -225,17 +286,19 @@ def extract(owner_id: str, config: dict, limit: int | None = None) -> list[Reaso
     conviction_context = _build_conviction_context(active_convictions)
 
     # 建立所有 prompts
-    prompts = [_build_prompt(s, conviction_context) for s in candidates]
+    prompts = [
+        _build_group_prompt(date, context, sigs, conviction_context)
+        for date, context, sigs in groups
+    ]
 
-    # 批次呼叫 LLM（claude_code 會並行，其他循序）
+    # 批次呼叫 LLM
     responses = batch_llm(prompts, config=config)
 
     # 解析結果
     new_traces: list[ReasoningTrace] = []
-    for signal, raw in zip(candidates, responses):
-        trace = _parse_response(raw, signal)
-        if trace:
-            new_traces.append(trace)
+    for (date, context, sigs), raw in zip(groups, responses):
+        traces = _parse_group_response(raw, sigs, date, context)
+        new_traces.extend(traces)
 
     if new_traces:
         all_traces = existing_traces + new_traces
