@@ -696,9 +696,9 @@ def query(
     ctx = _run_five_layer_pipeline(owner_id, question, caller, cfg,
                                     conviction_limit=5, trace_limit=5)
 
-    # Step 5: Response Generation
+    # Step 5: Response Generation（五層 context 已精準，Sonnet 足夠）
     prompt = _build_response_prompt(ctx)
-    ctx.response = call_llm(prompt, config=cfg)
+    ctx.response = call_llm(prompt, config=cfg, tier="medium")
 
     return {
         "response": ctx.response,
@@ -769,9 +769,9 @@ def generate(
     ctx = _run_five_layer_pipeline(owner_id, task, caller, cfg,
                                     conviction_limit=7, trace_limit=8)
 
-    # Step 5: Generation
+    # Step 5: Generation（五層 context 已精準，Sonnet 足夠）
     prompt = _build_generation_prompt(ctx, output_type, extra_instructions)
-    ctx.response = call_llm(prompt, config=cfg)
+    ctx.response = call_llm(prompt, config=cfg, tier="medium")
 
     return {
         "content": ctx.response,
