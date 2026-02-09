@@ -126,6 +126,20 @@ conviction detection（embedding 聚類 + 五種共鳴 + 幻覺過濾）、trace
 | 瀏覽器插件（搜尋/點擊/停留/畫線） | 最強的 input signal 來源 |
 | 搜尋鏈偵測 | 連續搜尋 = 探索路徑 = reasoning trace 原始素材 |
 
+### Phase 2.5 — 外部整合層（API Server + Demand Signal）
+
+Mind Spiral 從 CLI 工具演進為獨立 API Server，可被多個 Agent 呼叫。詳見 `PRD.md` 的「外部整合層」章節。
+
+| 項目 | 說明 | 狀態 |
+|------|------|---|
+| FastAPI 薄包裝 | /ask /query /generate /ingest /stats | 待做 |
+| 認證機制 | owner_token / agent_token / caller_token / api_key | 待做 |
+| Demand log 側錄 | 非 Owner 查詢自動記錄到 demand.jsonl | 待做 |
+| Demand × Conviction 落差分析 | 交叉比對外界需求和內部信念 | 待做 |
+| OpenClaw Skill | 接上 OpenClaw 的 query/generate | 待做 |
+| 代理人確認機制 | Agent 產出經 Owner 確認後才寫入 signals | 待做 |
+| Owner 對話回寫 | Joey 在 OpenClaw 的對話轉 signals | 待做 |
+
 ### Phase 4 — 多人 + 產品化
 
 Onboarding 流程、第二個使用者上線、信念演變視覺化、Web dashboard。

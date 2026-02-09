@@ -395,6 +395,229 @@ Cloudflare
 
 ---
 
+## 外部整合層：Mind Spiral 作為獨立服務
+
+> 2026-02-09 設計。Mind Spiral 引擎從「本地 CLI 工具」演進為「獨立 API Server」，可被多個前端 Agent（OpenClaw、LINE Bot、MCP Client 等）呼叫。
+
+### 設計動機
+
+Mind Spiral 的核心價值不在介面層（OpenClaw / LINE），而在五層思維模型。將引擎獨立部署為 API Server，可以：
+
+1. **一個模型，多個出口** — OpenClaw、LINE Bot、瀏覽器插件、MCP Client 都能存取同一份思維模型
+2. **前端解耦** — 換 Agent 平台不需要改引擎
+3. **存取控制統一** — 所有呼叫者透過同一個 API 認證，不需要每個前端各自實作
+
+### 呼叫者分類與權限
+
+四種角色，權限遞減：
+
+| 角色 | 範例 | 可呼叫 API | Signal 寫入 | Demand Log |
+|------|------|-----------|-------------|------------|
+| **① Owner（本人）** | Joey 自己的 OpenClaw / LINE | 全部 | ✅ output signals | — |
+| **② Agent（代理人）** | 自動發文 Agent、Email Agent | query / generate | ⚠️ 需確認機制（見下方） | — |
+| **③ Viewer（外部查詢者）** | 客戶、團隊、朋友的 OpenClaw | query / generate（存取控制過濾） | ❌ | ✅ 自動側錄 |
+| **④ System（系統呼叫）** | MCP Server、CI/CD、Webhook | 特定 endpoint | ❌ | ✅ usage log |
+
+認證方式：
+
+```
+① Owner    → owner_token（完整讀寫權限）
+② Agent    → agent_token（讀取 + 受限寫入）
+③ Viewer   → caller_token + caller_id（讀取 + demand 側錄）
+④ System   → api_key（讀取 + usage 側錄）
+```
+
+### API 設計
+
+```
+Mind Spiral Server
+│
+├─ POST /query          五層感知 RAG（回答問題）
+├─ POST /generate       內容生成（文章/貼文/腳本/決策）
+├─ POST /ask            統一入口（自動路由 query or generate）
+├─ POST /ingest         寫入 signals（僅 ① Owner）
+├─ GET  /stats          知識庫統計
+├─ GET  /demand/stats   Demand 分析報告
+│
+│  以下為 ② Agent 專用
+├─ POST /agent/confirm  代理人行為確認（見「代理人問題」）
+│
+│  以下為內部
+├─ POST /detect         觸發 conviction detection
+├─ POST /extract        觸發 trace extraction
+└─ GET  /health         健康檢查
+```
+
+### 迴路設計：誰的資料可以回寫？
+
+Mind Spiral 的核心假設是「從真實行為中偵測信念」。不同來源的資料有不同的可信度：
+
+```
+┌──────────────────────────────────────────────────────────┐
+│                    Mind Spiral Server                      │
+│                                                            │
+│  signals.jsonl ← 只接受可信來源的寫入                        │
+│  demand.jsonl  ← 所有非 Owner 的查詢自動側錄                 │
+│                                                            │
+│  ┌──────────────────────────────────────────────────────┐ │
+│  │ 可信來源（可寫入 signals）                              │ │
+│  │                                                        │ │
+│  │  ① Joey 本人的對話 → direction: output                 │ │
+│  │    modality: written_casual / spoken_spontaneous        │ │
+│  │                                                        │ │
+│  │  ② 代理人行為（經 Joey 確認後）→ direction: output      │ │
+│  │    modality: agent_generated_confirmed                  │ │
+│  │                                                        │ │
+│  │  既有管線（process_daily / content / chat / reading）    │ │
+│  └──────────────────────────────────────────────────────┘ │
+│                                                            │
+│  ┌──────────────────────────────────────────────────────┐ │
+│  │ 不可信來源（不寫入 signals，寫入 demand）               │ │
+│  │                                                        │ │
+│  │  ③ 外部查詢者的問題 → demand log                       │ │
+│  │  ④ 系統呼叫的 metadata → usage log                     │ │
+│  │  ② 代理人未經確認的產出 → 不記錄                        │ │
+│  └──────────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────┘
+```
+
+### 代理人問題：AI 代替你說的話算不算你說的？
+
+當 ② Agent 用 mind-spiral 的 generate() 產出內容（自動發社群貼文、自動回信），外界看到的是「Joey 說的」，但 Joey 本人並沒有真的說過。
+
+三種策略：
+
+| 策略 | 做法 | 適用場景 |
+|------|------|----------|
+| **不回寫** | 代理人產出不進 signals | 低風險自動化（回覆罐頭訊息） |
+| **標記回寫** | 進 signals，modality = `agent_generated`，conviction 權重 ×0.3 | 風格一致但非 Joey 本人的產出 |
+| **確認後回寫** | Joey 審核後轉為 `agent_generated_confirmed`，權重 ×0.8 | 重要的公開發言、決策 |
+
+建議：預設「不回寫」，只有 Joey 主動確認的才進模型。避免 AI 自我強化的迴路（AI 生成 → 寫入模型 → 影響下次生成 → 越來越偏）。
+
+### Demand Signal：外界認知的鏡子
+
+當 ③ Viewer 或 ④ System 查詢 Mind Spiral 時，問題本身就是有價值的信號 — 不是關於 Joey 怎麼想，而是關於**外界認為 Joey 能回答什麼**。
+
+#### Demand Log 格式
+
+```jsonl
+{
+  "date": "2026-02-09",
+  "caller_id": "alice",
+  "caller_role": "viewer",
+  "source_agent": "openclaw-team",
+  "question": "定價怎麼看？",
+  "matched_frame": "價值驅動的務實行動框架",
+  "topics": ["pricing", "strategy"],
+  "interaction": {
+    "followup_count": 2,
+    "session_duration_sec": 180
+  }
+}
+```
+
+#### Demand 分析維度
+
+| 維度 | 分析內容 | 價值 |
+|------|----------|------|
+| **Topic Demand** | 哪些主題被問最多 | Joey 的外界專業形象 |
+| **Framing Demand** | 怎麼問的（「你覺得...」vs「幫我分析...」） | 外界對 Joey 的角色認知（顧問 vs 工具） |
+| **Satisfaction Signal** | 追問、離開、反問 | 回答品質 + 話題深度 |
+| **Audience Pattern** | 誰在問（創業者、投資人、學生） | Joey 的受眾畫像 |
+
+#### Demand × Conviction 落差分析
+
+交叉比對 demand 頻率和 conviction strength，揭示自我認知與外界認知的差距：
+
+| conviction 高 + demand 高 | 核心領域，內外一致 |
+|---|---|
+| **conviction 高 + demand 低** | Joey 很懂但沒人知道（隱藏優勢 → 可主動推廣） |
+| **conviction 低 + demand 高** | 別人以為他懂但其實不深（風險 → 需加強或澄清） |
+| conviction 低 + demand 低 | 不相關，忽略 |
+
+此分析可定期產出報告，透過主動觸碰（LINE Bot）回饋給 Joey：
+
+```
+📊 外界認知報告（本月）
+
+🔥 高需求主題：
+  AI 應用（被問 23 次）— 但你的 conviction 只有 0.35
+  → 要不要多聊聊這個領域？
+
+💎 隱藏優勢：
+  系統化思維（conviction 0.82）— 但只被問 2 次
+  → 外界還不知道你很擅長這個
+
+👥 受眾變化：
+  本月新增 3 位投資人提問（上月 0 位）
+  → 你的內容可能開始觸及新族群
+```
+
+### 部署架構
+
+```
+┌─────────────────────────────────────┐
+│     Mind Spiral Server               │
+│     (Akamai VPS / 獨立部署)           │
+│                                       │
+│  Python + FastAPI + ChromaDB          │
+│  LLM: claude_code backend            │
+│  Data: /data/{owner_id}/             │
+│                                       │
+│  Port: 8000（內部）                    │
+│  透過 Zeabur Ingress 或 Nginx 對外     │
+└────────┬──────────────────────────────┘
+         │
+    ┌────┴────┬──────────┬──────────┬──────────┐
+    │         │          │          │          │
+ OpenClaw A  OpenClaw B  LINE Bot   MCP Client  其他 Agent
+ (Joey 本人) (團隊用)   (主動觸碰)  (系統整合)   (自動化)
+ ① Owner    ③ Viewer   ① Owner    ④ System    ② Agent
+```
+
+### 與 OpenClaw 的整合方式
+
+OpenClaw 透過 **Skill** 或 **Tool** 呼叫 Mind Spiral API：
+
+| OpenClaw 端 | Mind Spiral 端 | 說明 |
+|---|---|---|
+| `SOUL.md` | identity.json (Layer 5) | Joey 的身份核心，同步或手動維護 |
+| `AGENTS.md` | frames.jsonl (Layer 4) | 情境框架描述，引導 Agent 行為 |
+| Skill: `mind-spiral-query` | `POST /ask` | 查詢或生成內容 |
+| Hook: `tool_result_persist` | `POST /demand` | 自動側錄非 Owner 的查詢 |
+| Cron job | `GET /demand/stats` | 定期拉取 demand 分析報告 |
+
+### 與既有管線的關係
+
+既有的輸入管線（16_moltbot_joey 的 process_*.py）不受影響：
+
+```
+既有管線（不變）：
+  錄音 → process_daily.py  → POST /ingest
+  貼文 → process_content.py → POST /ingest
+  聊天 → process_chat.py   → POST /ingest
+  書籍 → process_reading.py → POST /ingest
+
+新增管線：
+  OpenClaw 對話（Joey 本人）→ session JSONL → 回饋管線 → POST /ingest
+  OpenClaw 對話（其他人）  → 自動側錄 → demand.jsonl（不進 signals）
+```
+
+### 開發優先級
+
+| 項目 | 優先級 | 說明 |
+|------|--------|------|
+| FastAPI 薄包裝（/ask /query /generate） | P0 | 把現有 CLI 包成 HTTP API |
+| 認證機制（owner_token / caller_token） | P0 | 區分四種角色 |
+| Demand log 側錄 | P1 | 每次非 Owner 查詢自動記錄 |
+| Demand × Conviction 落差分析 | P1 | 定期報告 |
+| OpenClaw Skill 開發 | P1 | 接上 OpenClaw |
+| 代理人確認機制 | P2 | Agent 產出的回寫流程 |
+| Owner 對話回寫管線 | P2 | Joey 本人在 OpenClaw 的對話轉 signals |
+
+---
+
 ## 技術約束
 
 | 項目 | 決策 |

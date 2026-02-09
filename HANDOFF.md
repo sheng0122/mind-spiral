@@ -144,6 +144,16 @@ config/default.yaml           ← claude_code backend + 防護設定
 - [ ] 信念漂移偵測（定期重算 conviction embedding，方向變化 > 閾值 → 警報）
 - [ ] 動態 strength 調整（PID 概念，取代固定 ±0.05）
 
+### Phase 2.5 — 外部整合層（API Server + Demand Signal）⭐ 新增
+- [ ] FastAPI 薄包裝（把現有 CLI 的 ask/query/generate 包成 HTTP API）
+- [ ] 認證機制（四種角色：Owner / Agent / Viewer / System）
+- [ ] Demand log 側錄（非 Owner 查詢自動記錄）
+- [ ] Demand × Conviction 落差分析（外界認知 vs 自我認知）
+- [ ] OpenClaw Skill（接上 OpenClaw 的 query/generate）
+- [ ] 代理人確認機制（AI 代替說的話，確認後才寫入）
+- [ ] Owner 對話回寫管線（Joey 在 OpenClaw 的對話 → signals）
+- 詳見 PRD.md「外部整合層」章節
+
 ### Phase 3 — 被動擷取（延後）
 - [ ] 瀏覽器插件（搜尋/點擊/停留/畫線）
 - [ ] 搜尋鏈偵測
