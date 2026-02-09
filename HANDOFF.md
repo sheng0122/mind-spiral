@@ -73,7 +73,10 @@ engine/
 ├── query_engine.py           ← 五層感知 RAG + 資料快取 + conviction 向量索引 + signal 回溯 + 時序查詢 + 信心校準
 ├── decision_tracker.py       ← 決策追蹤 + outcome 螺旋回饋 + 歷史跳過
 ├── contradiction_alert.py    ← 矛盾偵測 + LLM 信心過濾 + pair cache（跳過已檢查）
-└── daily_batch.py            ← 每日/每週 orchestrator + signal cache（共用 store）
+├── daily_batch.py            ← 每日/每週 orchestrator + signal cache（共用 store）
+├── api.py                    ← FastAPI API Server（6 endpoint：health/stats/ask/query/generate/ingest）
+├── auth.py                   ← Bearer token 認證（owner/agent/viewer/public 四種角色）
+└── schemas_api.py            ← API Request/Response Pydantic models
 
 config/default.yaml           ← claude_code backend + Haiku/Sonnet 分級 + 防護設定
 ```
@@ -258,8 +261,9 @@ config/default.yaml           ← claude_code backend + Haiku/Sonnet 分級 + �
 - `data/{owner}/strength_snapshots.jsonl` — 新檔案
 
 ### Phase 2.5 — 外部整合層（API Server + Demand Signal）
-- [ ] FastAPI 薄包裝（把現有 CLI 的 ask/query/generate 包成 HTTP API）
-- [ ] 認證機制（四種角色：Owner / Agent / Viewer / System）
+- [x] FastAPI API Server（engine/api.py — 6 endpoint + CORS + exception handler）
+- [x] 認證機制（engine/auth.py — Bearer token，四種角色：owner/agent/viewer/public）
+- [x] Request/Response Schema（engine/schemas_api.py — Pydantic 驗證 + Response Envelope）
 - [ ] Demand log 側錄（非 Owner 查詢自動記錄）
 - [ ] Demand × Conviction 落差分析（外界認知 vs 自我認知）
 - [ ] OpenClaw Skill（接上 OpenClaw 的 query/generate）
@@ -288,6 +292,12 @@ mind-spiral query --owner joey "定價怎麼看？"        # 直接 query
 mind-spiral generate --owner joey --type script "短影音腳本主題"  # 直接 generate
 
 # 日常操作
+# API Server
+uv run uvicorn engine.api:app --reload --port 8000
+curl http://localhost:8000/health
+curl "http://localhost:8000/stats?owner_id=joey"
+curl -X POST http://localhost:8000/ask -H "Content-Type: application/json" -d '{"owner_id":"joey","text":"定價怎麼看？"}'
+
 mind-spiral stats --owner joey
 mind-spiral detect --owner joey
 mind-spiral extract --owner joey --limit 10
@@ -319,12 +329,27 @@ uv run python migrate_atoms.py --atoms /path/to/atoms.jsonl --owner joey
 - `query_engine.py`：query/generate 最終生成從 Opus 降為 Sonnet（五層 context 已精準，不需 Opus 推理）
 - daily 從**跑不完** → **1 分鐘**，ask 從 ~40s → ~23s
 
+### Phase 2.5: FastAPI API Server（P0）
+- `engine/api.py`：6 個 endpoint — `/health` `/stats` `/ask` `/query` `/generate` `/ingest`
+- `engine/auth.py`：Bearer token 認證，從環境變數讀 `MIND_SPIRAL_OWNER_TOKEN` / `MIND_SPIRAL_AGENT_TOKENS` / `MIND_SPIRAL_VIEWER_TOKENS`
+- `engine/schemas_api.py`：Request/Response Pydantic models（AskRequest, QueryRequest, GenerateRequest, IngestRequest, APIResponse）
+- `pyproject.toml`：加 `fastapi>=0.115` + `uvicorn[standard]>=0.32`
+- `/health` 和 `/stats` 不需認證，`/ingest` 限 owner，其餘 endpoint 任何角色可呼叫
+- 啟動：`uv run uvicorn engine.api:app --reload --port 8000`
+- 已驗證：health、stats、ask 三個 endpoint 正常運作
+
 ### 新檔案
 - `data/{owner}/strength_snapshots.jsonl` — 每次 detect 後自動產生
 
 ## Git log
 
 ```
+c7bba79 feat: FastAPI API Server（Phase 2.5 P0）— 6 個 endpoint + token 認證
+a5f2e01 docs: 更新 HANDOFF — 效能優化第四輪 + ask/generate 測試結果 + 品質問題記錄
+79b9c4e perf: query/generate LLM 從 Opus 降為 Sonnet，回應速度提升
+f0b60e8 perf: detect + contradiction scan 效能大幅優化
+b95e1ab feat: digest/weekly 重構 — strength 追蹤 + 永遠有內容 + 五層深度
+a9a97af feat: LLM 三檔制（Opus/Sonnet/Haiku）+ digest/weekly 問題分析寫入 HANDOFF
 fbf31ff docs: 更新 HANDOFF — 效能優化三輪記錄 + LLM 分級對照表 + P2 修正清單
 95cad4d perf: daily batch signal cache + contradiction pair cache + 移除 dead code
 a5a4a24 perf: 查詢效能大幅優化 + LLM 分級省成本 + CloneMemBench 啟發增強

@@ -18,6 +18,33 @@ Layer 1: Signals           信號層
 
 使用者每天花不到 2 分鐘。大部分時候是 0。
 
+## API Server
+
+Mind Spiral 提供 FastAPI HTTP API，可被外部 Agent 呼叫：
+
+```bash
+# 啟動
+uv run uvicorn engine.api:app --reload --port 8000
+
+# 查詢
+curl http://localhost:8000/health
+curl "http://localhost:8000/stats?owner_id=joey"
+curl -X POST http://localhost:8000/ask \
+  -H "Content-Type: application/json" \
+  -d '{"owner_id":"joey","text":"定價怎麼看？"}'
+```
+
+| Endpoint | Method | 認證 | 說明 |
+|----------|--------|------|------|
+| `/health` | GET | 不需 | 版本 + uptime + ChromaDB 狀態 |
+| `/stats` | GET | 不需 | 五層數據統計 |
+| `/ask` | POST | 任何角色 | 統一入口（自動判斷 query/generate） |
+| `/query` | POST | 任何角色 | 五層感知查詢 |
+| `/generate` | POST | 任何角色 | 內容產出（article/post/script/decision） |
+| `/ingest` | POST | owner | 寫入 signals |
+
+認證：`Authorization: Bearer <token>`，環境變數 `MIND_SPIRAL_OWNER_TOKEN` / `MIND_SPIRAL_AGENT_TOKENS` / `MIND_SPIRAL_VIEWER_TOKENS`。
+
 ## 文件
 
 - [PRD.md](PRD.md) — 產品需求文件

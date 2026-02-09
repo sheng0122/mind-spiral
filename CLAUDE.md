@@ -84,7 +84,10 @@ Joey 是 Mind Spiral 的第一個使用者。16 的 `process_*.py` 負責把 Joe
 │   ├── daily_batch.py           ← 每日/每週 orchestrator
 │   ├── frame_clusterer.py       ← Layer 4 情境框架聚類
 │   ├── identity_scanner.py      ← Layer 5 身份核心掃描
-│   └── query_engine.py          ← 五層感知 RAG + Generation Mode + ask 統一入口
+│   ├── query_engine.py          ← 五層感知 RAG + Generation Mode + ask 統一入口
+│   ├── api.py                   ← FastAPI API Server（Phase 2.5）
+│   ├── auth.py                  ← Bearer token 認證（四種角色）
+│   └── schemas_api.py           ← API Request/Response Pydantic models
 ├── browser-ext/                 ← Chrome 擴充套件（Phase 2）
 ├── line-bot/                    ← LINE Bot（主動觸碰出口）
 ├── config/
@@ -132,8 +135,9 @@ Mind Spiral 從 CLI 工具演進為獨立 API Server，可被多個 Agent 呼叫
 
 | 項目 | 說明 | 狀態 |
 |------|------|---|
-| FastAPI 薄包裝 | /ask /query /generate /ingest /stats | 待做 |
-| 認證機制 | owner_token / agent_token / caller_token / api_key | 待做 |
+| FastAPI Server（engine/api.py） | /health /stats /ask /query /generate /ingest | ✅ |
+| 認證機制（engine/auth.py） | Bearer token，四種角色：owner/agent/viewer/public | ✅ |
+| Request/Response Schema | engine/schemas_api.py，Pydantic 驗證 + Response Envelope | ✅ |
 | Demand log 側錄 | 非 Owner 查詢自動記錄到 demand.jsonl | 待做 |
 | Demand × Conviction 落差分析 | 交叉比對外界需求和內部信念 | 待做 |
 | OpenClaw Skill | 接上 OpenClaw 的 query/generate | 待做 |
@@ -189,6 +193,15 @@ mind-spiral generate --owner joey --type script "短影音：怎麼學 AI"      
 mind-spiral generate --owner joey --type post "社群貼文：資訊密度"         # 社群貼文
 mind-spiral generate --owner joey --type decision "該不該換工作？"         # 決策分析
 
+# API Server
+uv run uvicorn engine.api:app --reload --port 8000
+# 測試
+curl http://localhost:8000/health
+curl "http://localhost:8000/stats?owner_id=joey"
+curl -X POST http://localhost:8000/ask -H "Content-Type: application/json" -d '{"owner_id":"joey","text":"定價怎麼看？"}'
+# 寫入 signals（需 owner token）
+curl -X POST http://localhost:8000/ingest -H "Authorization: Bearer $MIND_SPIRAL_OWNER_TOKEN" -H "Content-Type: application/json" -d '{"owner_id":"joey","signals":[...]}'
+
 # 全量跑
 uv run python run_full_extract.py
 
@@ -213,6 +226,10 @@ cd line-bot && uvicorn app:app --reload
 - `MIND_SPIRAL_DATA_DIR` — 資料根目錄（預設 `./data`）
 - `LLM_BACKEND` — `local` | `cloud`
 - `ANTHROPIC_API_KEY` — cloud 模式用
+- `MIND_SPIRAL_OWNER_TOKEN` — API Server owner 認證 token
+- `MIND_SPIRAL_AGENT_TOKENS` — Agent tokens（逗號分隔）
+- `MIND_SPIRAL_VIEWER_TOKENS` — Viewer tokens（逗號分隔）
+- `MIND_SPIRAL_CORS_ORIGINS` — CORS 允許來源（逗號分隔，預設 `*`）
 - `LINE_CHANNEL_ACCESS_TOKEN` — LINE Bot
 - `LINE_CHANNEL_SECRET` — LINE Bot
 
@@ -221,6 +238,6 @@ cd line-bot && uvicorn app:app --reload
 - `data/` 在 `.gitignore` 中，使用者資料不進版控
 - 所有 LLM 呼叫通過 `engine/llm.py`
 - Schema 設計見 `schemas/` 目錄，Pydantic 模型見 `engine/models.py`
-- 引擎是純 Python library，不依賴任何 web framework
+- 引擎是 Python library + FastAPI API Server（`engine/api.py`）
 - LINE Bot 和瀏覽器插件是獨立的介面層，透過引擎 API 操作
 - Phase 3 實作 query_engine 時，需引入向量空間導航控制（參考 CyberLoop AICL 架構）
