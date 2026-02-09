@@ -49,13 +49,27 @@ def _classify_tension(c1: Conviction, c2: Conviction, config: dict) -> tuple[str
     return relationship, confidence
 
 
-def scan(owner_id: str, config: dict) -> list[dict]:
-    """掃描所有 active convictions，找出潛在矛盾 pairs。
+def _load_checked_pairs(owner_dir: Path) -> set[tuple[str, str]]:
+    """載入已檢查過的 pair（避免重複 LLM 呼叫）。"""
+    path = owner_dir / "checked_pairs.json"
+    if not path.exists():
+        return set()
+    with open(path) as f:
+        pairs = json.load(f)
+    return {(p[0], p[1]) for p in pairs}
 
-    1. 取所有 active convictions 的 embeddings
-    2. 找 cosine similarity > 0.7 的 pairs
-    3. LLM 確認關係
-    4. 如果是 contradiction → 寫入 conviction.tensions
+
+def _save_checked_pairs(owner_dir: Path, pairs: set[tuple[str, str]]) -> None:
+    """儲存已檢查過的 pair。"""
+    path = owner_dir / "checked_pairs.json"
+    with open(path, "w") as f:
+        json.dump(sorted(pairs), f)
+
+
+def scan(owner_id: str, config: dict) -> list[dict]:
+    """掃描 active convictions，找出潛在矛盾 pairs。
+
+    只對新出現的 pair 呼叫 LLM，已檢查過的 pair 跳過。
     """
     owner_dir = get_owner_dir(config, owner_id)
     convictions = _load_convictions(owner_dir)
@@ -76,25 +90,29 @@ def scan(owner_id: str, config: dict) -> list[dict]:
         (c, np.array(e)) for c, e in zip(active, embs)
     ]
 
-    # 找相似 pairs（similarity > 0.7 但不完全相同）
+    # 載入已檢查過的 pair，避免重複 LLM
+    previously_checked = _load_checked_pairs(owner_dir)
+    newly_checked: set[tuple[str, str]] = set()
+
     results: list[dict] = []
-    checked: set[tuple[str, str]] = set()
+    min_confidence = config.get("engine", {}).get("contradiction", {}).get("min_confidence", 7)
 
     for i, (c1, e1) in enumerate(conv_embeddings):
         for j, (c2, e2) in enumerate(conv_embeddings):
             if i >= j:
                 continue
-            pair_key = (c1.conviction_id, c2.conviction_id)
-            if pair_key in checked:
+
+            # 排序 pair key 確保一致性
+            pair_key = tuple(sorted([c1.conviction_id, c2.conviction_id]))
+            if pair_key in previously_checked:
                 continue
-            checked.add(pair_key)
+            newly_checked.add(pair_key)
 
             sim = float(np.dot(e1, e2) / (np.linalg.norm(e1) * np.linalg.norm(e2) + 1e-8))
-            if sim < 0.7 or sim > 0.95:  # 太相似的可能是同一概念
+            if sim < 0.7 or sim > 0.95:
                 continue
 
             # LLM 確認（含信心分數過濾）
-            min_confidence = config.get("engine", {}).get("contradiction", {}).get("min_confidence", 7)
             relationship, confidence = _classify_tension(c1, c2, config)
             if not relationship:
                 continue
@@ -125,7 +143,6 @@ def scan(owner_id: str, config: dict) -> list[dict]:
                     c1.tensions = []
                 if c2.tensions is None:
                     c2.tensions = []
-                # 避免重複
                 existing_a = {t.opposing_conviction for t in c1.tensions}
                 existing_b = {t.opposing_conviction for t in c2.tensions}
                 if c2.conviction_id not in existing_a:
@@ -133,7 +150,8 @@ def scan(owner_id: str, config: dict) -> list[dict]:
                 if c1.conviction_id not in existing_b:
                     c2.tensions.append(tension_b)
 
-    # 儲存更新後的 convictions
+    # 儲存更新後的 convictions + checked pairs
     _save_convictions(owner_dir, convictions)
+    _save_checked_pairs(owner_dir, previously_checked | newly_checked)
 
     return results

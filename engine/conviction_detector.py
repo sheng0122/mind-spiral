@@ -251,15 +251,22 @@ def _extract_domains(signals: list[Signal]) -> list[str]:
     return [t for t, _ in Counter(all_topics).most_common(3)]
 
 
-def detect(owner_id: str, config: dict) -> list[Conviction]:
+def detect(
+    owner_id: str,
+    config: dict,
+    store: SignalStore | None = None,
+    signal_map: dict | None = None,
+) -> list[Conviction]:
     """主入口：偵測 convictions。
 
     1. 從 ChromaDB 取所有 signal embeddings
     2. AgglomerativeClustering 聚類
     3. 每個 cluster 做五種共鳴收斂檢查
     4. 通過門檻的 cluster 生成/更新 conviction
+
+    可傳入 store 和 signal_map 避免重複載入（daily_batch 共用）。
     """
-    store = SignalStore(config, owner_id)
+    store = store or SignalStore(config, owner_id)
     owner_dir = get_owner_dir(config, owner_id)
 
     # 取所有 signals + embeddings
@@ -291,9 +298,10 @@ def detect(owner_id: str, config: dict) -> list[Conviction]:
     for signal_id, label in zip(ids, labels):
         clusters[label].append(signal_id)
 
-    # 載入 signals（一次性）
-    all_signals = store.load_all()
-    signal_map = {s.signal_id: s for s in all_signals}
+    # 載入 signals（一次性，或用傳入的 cache）
+    if signal_map is None:
+        all_signals = store.load_all()
+        signal_map = {s.signal_id: s for s in all_signals}
 
     # 載入既有 convictions — batch encode 取代逐一計算
     existing = _load_convictions(owner_dir)

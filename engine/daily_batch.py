@@ -15,31 +15,6 @@ from engine.llm import call_llm
 from engine.trace_extractor import extract as extract_traces
 
 
-def _check_decision_followups(owner_id: str, config: dict) -> list[dict]:
-    """檢查需要回訪的決策。掃描 signals 中 modality=decided 且到期的。"""
-    from engine.signal_store import SignalStore
-
-    store = SignalStore(config, owner_id)
-    signals = store.load_all()
-    today = datetime.now()
-    followup_cfg = config.get("engine", {}).get("touch", {}).get("decision_followup", {})
-    default_days = followup_cfg.get("tactical_days", 14)
-
-    pending = []
-    for s in signals:
-        if s.modality != "decided":
-            continue
-        decided_date = datetime.strptime(s.source.date, "%Y-%m-%d")
-        days_ago = (today - decided_date).days
-        if days_ago >= default_days:
-            pending.append({
-                "signal_id": s.signal_id,
-                "decision": s.content.text[:100],
-                "decided_date": s.source.date,
-                "days_ago": days_ago,
-            })
-    return pending
-
 
 def _generate_digest(
     owner_id: str,
@@ -92,18 +67,26 @@ def run_daily(owner_id: str, config: dict | None = None) -> dict:
     """執行每日批次流程。
 
     1. detect_convictions
-    2. scan_contradictions
-    3. check_decision_followups
-    4. generate_digest
-    5. 輸出到 data/{owner_id}/digests/
+    2. extract_traces
+    3. scan_contradictions
+    4. check_decision_followups
+    5. generate_digest
+    6. 輸出到 data/{owner_id}/digests/
     """
+    from engine.signal_store import SignalStore
+
     cfg = config or load_config()
 
+    # 共用 store + signal_map，避免重複建 client 和 load_all
+    store = SignalStore(cfg, owner_id)
+    all_signals = store.load_all()
+    signal_map = {s.signal_id: s for s in all_signals}
+
     # Step 1: Conviction detection
-    new_convictions = detect_convictions(owner_id, cfg)
+    new_convictions = detect_convictions(owner_id, cfg, store=store, signal_map=signal_map)
 
     # Step 2: Trace extraction（需要在 conviction detection 之後，才能引用 convictions）
-    new_traces = extract_traces(owner_id, cfg)
+    new_traces = extract_traces(owner_id, cfg, store=store, signal_map=signal_map)
 
     # Step 3: Contradiction scan
     contradictions = scan_contradictions(owner_id, cfg)

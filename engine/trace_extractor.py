@@ -239,21 +239,26 @@ def _parse_group_response(raw: str, signals: list[Signal], date: str, context: s
     return results
 
 
-def extract(owner_id: str, config: dict, limit: int | None = None) -> list[ReasoningTrace]:
+def extract(
+    owner_id: str,
+    config: dict,
+    limit: int | None = None,
+    store: SignalStore | None = None,
+    signal_map: dict | None = None,
+) -> list[ReasoningTrace]:
     """主入口：從 output signals 提取推理軌跡。
 
     v2: 按 (date, context) 分組送 LLM，從整段對話中提取推理軌跡。
 
-    1. 篩選適合的 output signals
-    2. 排除已處理過的分組
-    3. 按 (date, context) 分組
-    4. 用 batch_llm 並行處理各組
-    5. 儲存到 traces.jsonl
+    可傳入 store 和 signal_map 避免重複載入（daily_batch 共用）。
     """
-    store = SignalStore(config, owner_id)
+    store = store or SignalStore(config, owner_id)
     owner_dir = get_owner_dir(config, owner_id)
 
-    all_signals = store.load_all()
+    if signal_map is not None:
+        all_signals = list(signal_map.values())
+    else:
+        all_signals = store.load_all()
     candidates = [
         s for s in all_signals
         if s.direction == "output" and s.modality in _EXTRACTABLE_MODALITIES
