@@ -180,7 +180,11 @@ config/default.yaml           ← claude_code backend + Haiku/Sonnet 分級 + �
 
 ### 立即可做
 - [x] 重跑 cluster → scan-identity → build-index（套用最新 conviction strength + conviction 索引）
-- [ ] 測試更新後的 ask/generate 品質（驗證 signal 回溯 + 時序查詢 + 信心校準）
+- [x] 測試更新後的 ask/generate 品質（驗證 signal 回溯 + 時序查詢 + 信心校準）
+
+### 已識別的品質問題
+- [ ] Frame matching 偏差：問「短影音怎麼做」match 到「指數投資複利思維」frame，conviction 搜尋正確但 frame 誤導 LLM 回應方向
+- [ ] Convictions 膨脹：369→587，部分為重複語義，需去重或合併機制
 
 ### Phase 2 剩餘
 - [x] Generation Mode — 數位分身可產出文章/貼文/腳本/決策
@@ -308,6 +312,12 @@ uv run python migrate_atoms.py --atoms /path/to/atoms.jsonl --owner joey
 - `cli.py`：detect 命令顯示 strength 變動
 - `run_full_extract.py`：適配新 detect 回傳格式
 - `CLAUDE.md`：`pip install -e .` → `uv sync`
+
+### 效能優化（第四輪）
+- `conviction_detector.py`：新 conviction 生成改 `batch_llm` 並行、跳過已覆蓋 clusters、比對門檻 0.85→0.80、向量化 similarity
+- `contradiction_alert.py`：循序 LLM 改 `batch_llm` 並行、每次最多 50 pairs
+- `query_engine.py`：query/generate 最終生成從 Opus 降為 Sonnet（五層 context 已精準，不需 Opus 推理）
+- daily 從**跑不完** → **1 分鐘**，ask 從 ~40s → ~23s
 
 ### 新檔案
 - `data/{owner}/strength_snapshots.jsonl` — 每次 detect 後自動產生
