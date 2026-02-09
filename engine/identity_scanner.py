@@ -84,7 +84,7 @@ def _generate_expressions(
 def call_llm_single(prompt: str, config: dict) -> str | None:
     """單次 LLM 呼叫，處理 markdown 清理。"""
     from engine.llm import call_llm
-    result = call_llm(prompt, config=config).strip()
+    result = call_llm(prompt, config=config, tier="light").strip()
     if result.startswith("```"):
         result = result.split("\n", 1)[1] if "\n" in result else result[3:]
     if result.endswith("```"):

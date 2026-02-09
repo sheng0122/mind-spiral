@@ -252,7 +252,7 @@ def scan_identity_cmd(owner: str):
 @cli.command(name="build-index")
 @click.option("--owner", required=True, help="使用者 ID")
 def build_index_cmd(owner: str):
-    """建立 trace/frame 的向量索引（加速查詢）"""
+    """建立 trace/frame/conviction 的向量索引（加速查詢）"""
     from engine.query_engine import build_index
 
     config = load_config()
@@ -260,6 +260,7 @@ def build_index_cmd(owner: str):
     stats = build_index(owner, config)
     click.echo(f"  Traces 索引: {stats['traces_indexed']} 筆")
     click.echo(f"  Frames 索引: {stats['frames_indexed']} 筆")
+    click.echo(f"  Convictions 索引: {stats['convictions_indexed']} 筆")
     click.echo("索引建立完成，查詢速度已優化。")
 
 

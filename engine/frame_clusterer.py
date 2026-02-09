@@ -202,7 +202,7 @@ def _generate_frame_metadata(
 輸出 JSON（不要加 markdown 標記）：
 {{"name": "...", "description": "...", "trigger_patterns": [{{"pattern": "...", "keywords": ["...", "..."]}}], "tone": "..."}}"""
 
-    result = call_llm(prompt, config=config).strip()
+    result = call_llm(prompt, config=config, tier="light").strip()
     if result.startswith("```"):
         result = result.split("\n", 1)[1] if "\n" in result else result[3:]
     if result.endswith("```"):
@@ -237,7 +237,10 @@ def cluster(owner_id: str, config: dict, min_traces: int = 3) -> list[ContextFra
     # Step 1: 每個 trace → 語義文字 → embedding
     store = SignalStore(config, owner_id)
     trace_texts = [_trace_to_text(t, conviction_map) for t in traces]
-    embeddings = np.array([store.compute_embedding(text) for text in trace_texts])
+    embeddings = store._get_embedder().encode(
+        trace_texts, normalize_embeddings=True,
+        show_progress_bar=len(trace_texts) > 50,
+    )
 
     if len(traces) < 2:
         return []

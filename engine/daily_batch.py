@@ -85,7 +85,7 @@ def _generate_digest(
         "請用溫暖、簡潔的語氣把這些整理成一段早晨簡報（150 字以內），"
         "像是一位了解你的朋友在幫你整理思緒。不要用條列式。"
     )
-    return call_llm(prompt, config=config).strip()
+    return call_llm(prompt, config=config, tier="light").strip()
 
 
 def run_daily(owner_id: str, config: dict | None = None) -> dict:
@@ -212,7 +212,7 @@ def run_weekly(owner_id: str, config: dict | None = None) -> dict:
         "請用溫暖但有洞察的語氣寫一份週報（200 字以內），"
         "重點放在趨勢和值得注意的變化。不要用條列式。"
     )
-    report = call_llm(prompt, config=cfg).strip()
+    report = call_llm(prompt, config=cfg, tier="light").strip()
 
     result = {
         "date": today_str,

@@ -152,7 +152,7 @@ def _generate_conviction_statement(signals: list[Signal], config: dict) -> str |
         "- 絕對不要輸出「我需要」「我無法」「讓我」「根據以上」等 AI 自我指涉語句\n"
         "- 如果這些想法太零散無法歸納出明確信念，只回答 SKIP"
     )
-    result = call_llm(prompt, config=config).strip().strip("「」""\"'")
+    result = call_llm(prompt, config=config, tier="light").strip().strip("「」""\"'")
 
     if not result or result.upper() == "SKIP":
         return None
@@ -295,12 +295,17 @@ def detect(owner_id: str, config: dict) -> list[Conviction]:
     all_signals = store.load_all()
     signal_map = {s.signal_id: s for s in all_signals}
 
-    # 載入既有 convictions
+    # 載入既有 convictions — batch encode 取代逐一計算
     existing = _load_convictions(owner_dir)
     existing_embeddings: list[tuple[Conviction, np.ndarray]] = []
-    for c in existing:
-        emb = store.compute_embedding(c.statement)
-        existing_embeddings.append((c, np.array(emb)))
+    if existing:
+        statements = [c.statement for c in existing]
+        embs = store._get_embedder().encode(
+            statements, normalize_embeddings=True,
+            show_progress_bar=len(statements) > 50,
+        )
+        for c, emb in zip(existing, embs):
+            existing_embeddings.append((c, np.array(emb)))
 
     min_resonance = config.get("engine", {}).get("conviction", {}).get("min_resonance_count", 2)
     new_convictions: list[Conviction] = []

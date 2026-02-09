@@ -32,7 +32,7 @@ def _classify_tension(c1: Conviction, c2: Conviction, config: dict) -> tuple[str
         "範例：contradiction 8\n"
         "只回答一行。"
     )
-    result = call_llm(prompt, config=config).strip().lower()
+    result = call_llm(prompt, config=config, tier="light").strip().lower()
     valid = {"contradiction", "evolution", "context_dependent", "creative_tension"}
 
     parts = result.split()
@@ -66,11 +66,15 @@ def scan(owner_id: str, config: dict) -> list[dict]:
 
     store = SignalStore(config, owner_id)
 
-    # 計算所有 conviction 的 embeddings
-    conv_embeddings: list[tuple[Conviction, np.ndarray]] = []
-    for c in active:
-        emb = np.array(store.compute_embedding(c.statement))
-        conv_embeddings.append((c, emb))
+    # 計算所有 conviction 的 embeddings — batch encode
+    statements = [c.statement for c in active]
+    embs = store._get_embedder().encode(
+        statements, normalize_embeddings=True,
+        show_progress_bar=len(statements) > 50,
+    )
+    conv_embeddings: list[tuple[Conviction, np.ndarray]] = [
+        (c, np.array(e)) for c, e in zip(active, embs)
+    ]
 
     # 找相似 pairs（similarity > 0.7 但不完全相同）
     results: list[dict] = []

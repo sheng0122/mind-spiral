@@ -49,8 +49,16 @@ def _get_event_loop() -> asyncio.AbstractEventLoop:
         return loop
 
 
-async def _claude_code_query(prompt: str, system: str | None = None, config: dict | None = None) -> str:
-    """用 Claude Agent SDK 的 query() 做單次 LLM 呼叫。"""
+async def _claude_code_query(
+    prompt: str,
+    system: str | None = None,
+    config: dict | None = None,
+    tier: str = "heavy",
+) -> str:
+    """用 Claude Agent SDK 的 query() 做單次 LLM 呼叫。
+
+    tier: "light" 用 Haiku（分類、摘要、短輸出），"heavy" 用 Sonnet（生成、推理）。
+    """
     from claude_agent_sdk import (
         AssistantMessage,
         ClaudeAgentOptions,
@@ -60,7 +68,12 @@ async def _claude_code_query(prompt: str, system: str | None = None, config: dic
 
     cfg = config or load_config()
     cc_cfg = cfg.get("llm", {}).get("claude_code", {})
-    model = cc_cfg.get("model")
+
+    # 根據 tier 選模型
+    if tier == "light":
+        model = cc_cfg.get("model_light", "claude-haiku-4-5-20251001")
+    else:
+        model = cc_cfg.get("model", "claude-sonnet-4-5-20250929")
 
     full_prompt = f"{system}\n\n{prompt}" if system else prompt
 
@@ -87,6 +100,7 @@ async def _claude_code_batch(
     system: str | None = None,
     config: dict | None = None,
     max_concurrent: int = 5,
+    tier: str = "heavy",
 ) -> list[str]:
     """用多個並行的 Agent SDK query 處理批次 prompts。
 
@@ -96,7 +110,7 @@ async def _claude_code_batch(
 
     async def _run_one(prompt: str) -> str:
         async with semaphore:
-            return await _claude_code_query(prompt, system=system, config=config)
+            return await _claude_code_query(prompt, system=system, config=config, tier=tier)
 
     tasks = [_run_one(p) for p in prompts]
     return await asyncio.gather(*tasks)
@@ -105,23 +119,31 @@ async def _claude_code_batch(
 # ─── 統一介面 ───
 
 
-def call_llm(prompt: str, system: str | None = None, config: dict | None = None) -> str:
-    """單次 LLM 呼叫。根據 config 的 llm_backend 自動選擇後端。"""
+def call_llm(
+    prompt: str,
+    system: str | None = None,
+    config: dict | None = None,
+    tier: str = "heavy",
+) -> str:
+    """單次 LLM 呼叫。
+
+    tier: "light" = 瑣事（分類、摘要、短輸出），"heavy" = 生成/推理。
+    claude_code backend 會根據 tier 選模型（Haiku vs Sonnet）。
+    """
     cfg = config or load_config()
     backend = cfg["engine"]["llm_backend"]
 
     if backend == "claude_code":
         loop = _get_event_loop()
         if loop.is_running():
-            # 已在 async context 中，用 nest_asyncio 或建新 thread
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                future = pool.submit(asyncio.run, _claude_code_query(prompt, system, cfg))
+                future = pool.submit(asyncio.run, _claude_code_query(prompt, system, cfg, tier=tier))
                 return future.result()
         else:
-            return loop.run_until_complete(_claude_code_query(prompt, system, cfg))
+            return loop.run_until_complete(_claude_code_query(prompt, system, cfg, tier=tier))
 
-    # OpenAI-compatible backends (local / cloud)
+    # OpenAI-compatible backends (local / cloud) — tier 不影響（本地模型只有一個）
     client = _get_client(cfg)
     model = cfg["llm"][backend]["model"]
 
@@ -139,6 +161,7 @@ def batch_llm(
     system: str | None = None,
     config: dict | None = None,
     max_concurrent: int = 5,
+    tier: str = "heavy",
 ) -> list[str]:
     """批次 LLM 呼叫。claude_code backend 會並行處理，其他 backend 循序。"""
     cfg = config or load_config()
@@ -151,13 +174,13 @@ def batch_llm(
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                 future = pool.submit(
                     asyncio.run,
-                    _claude_code_batch(prompts, system, cfg, max_concurrent),
+                    _claude_code_batch(prompts, system, cfg, max_concurrent, tier=tier),
                 )
                 return future.result()
         else:
             return loop.run_until_complete(
-                _claude_code_batch(prompts, system, cfg, max_concurrent)
+                _claude_code_batch(prompts, system, cfg, max_concurrent, tier=tier)
             )
 
     # OpenAI-compatible backends: 循序處理
-    return [call_llm(p, system=system, config=cfg) for p in prompts]
+    return [call_llm(p, system=system, config=cfg, tier=tier) for p in prompts]

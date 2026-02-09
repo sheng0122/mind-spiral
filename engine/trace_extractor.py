@@ -297,7 +297,7 @@ def extract(owner_id: str, config: dict, limit: int | None = None) -> list[Reaso
     ]
 
     # 批次呼叫 LLM
-    responses = batch_llm(prompts, config=config)
+    responses = batch_llm(prompts, config=config, tier="light")
 
     # 解析結果
     new_traces: list[ReasoningTrace] = []
