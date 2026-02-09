@@ -1,8 +1,8 @@
-# Mind Spiral — HANDOFF（2026-02-09）
+# Mind Spiral — HANDOFF（2026-02-10）
 
 ## 當前狀態
 
-Phase 0-2 完成。五層架構全部有 Joey 實際數據，端到端 pipeline 已驗證。Generation mode 上線，數位分身可產出內容（文章/貼文/腳本/決策）。Conviction strength 已加入 cross-direction 門檻和 authority 加權，解決「他講的內容不代表他真的信」問題。
+Phase 0-2 完成 + 效能大幅優化。五層架構全部有 Joey 實際數據，端到端 pipeline 已驗證。Generation mode 上線，數位分身可產出內容（文章/貼文/腳本/決策）。查詢效能經過三輪優化：向量索引全覆蓋、LLM 分級省成本、batch embedding 加速、資料快取去重複載入。
 
 ## 數據現況（Joey）
 
@@ -63,34 +63,74 @@ identity_scanner 改為全量重建 + fallback 機制：沒有達到 50% 門檻�
 engine/
 ├── cli.py                    ← CLI（ask/query/generate/detect/extract/cluster/scan-identity/build-index/...）
 ├── config.py                 ← 設定管理
-├── llm.py                    ← LLM 抽象層（local/cloud/claude_code + batch_llm 並行）
+├── llm.py                    ← LLM 抽象層（local/cloud/claude_code + batch + tier 分級）
 ├── models.py                 ← 五層 Pydantic models
 ├── signal_store.py           ← Layer 1 CRUD + ChromaDB
-├── conviction_detector.py    ← Layer 2：embedding 聚類 + 共鳴收斂 + cross-direction 門檻 + authority 加權
+├── conviction_detector.py    ← Layer 2：embedding 聚類 + 共鳴收斂 + cross-direction + batch embedding
 ├── trace_extractor.py        ← Layer 3：按 (date, context) 分組提取 + 分組級去重
-├── frame_clusterer.py        ← Layer 4：trace 語義 embedding 聚類（v2）+ LLM 生成 metadata
+├── frame_clusterer.py        ← Layer 4：trace 語義 embedding 聚類（v2）+ batch embedding
 ├── identity_scanner.py       ← Layer 5：跨 frame 覆蓋率篩選 + fallback top-3 + 全量重建
-├── query_engine.py           ← 五層感知 RAG + Generation Mode + ask 統一入口
+├── query_engine.py           ← 五層感知 RAG + 資料快取 + conviction 向量索引 + signal 回溯 + 時序查詢 + 信心校準
 ├── decision_tracker.py       ← 決策追蹤 + outcome 螺旋回饋 + 歷史跳過
-├── contradiction_alert.py    ← 矛盾偵測 + LLM 信心分數過濾
-└── daily_batch.py            ← 每日/每週 orchestrator
+├── contradiction_alert.py    ← 矛盾偵測 + LLM 信心過濾 + pair cache（跳過已檢查）
+└── daily_batch.py            ← 每日/每週 orchestrator + signal cache（共用 store）
 
-docs/architecture.html        ← 架構視覺化（五層 + 控制迴圈 + Phase 路線圖）
-migrate_atoms.py              ← 遷移工具（支援新版 signal + 舊版 atom 格式）
-config/default.yaml           ← claude_code backend + 防護設定
+config/default.yaml           ← claude_code backend + Haiku/Sonnet 分級 + 防護設定
 ```
+
+## 效能優化記錄（2026-02-10）
+
+### 第一輪：查詢效能（query_engine.py）
+
+| 改動 | 效果 |
+|------|------|
+| Conviction 向量索引 | build_index 新增 conviction embedding，查詢用語義搜尋取代 top-strength fallback |
+| 資料快取 | 同一 owner 的五層資料只載入一次（`_cache` + `invalidate_cache()`） |
+| ChromaDB client 單例化 | 同一 owner 共用一個 PersistentClient |
+| 共用 pipeline | `_run_five_layer_pipeline()` 抽出，query/generate 共用，embedding 最多算一次 |
+
+### 第二輪：CloneMemBench 啟發增強
+
+| 改動 | 解決的問題 |
+|------|-----------|
+| Signal 回溯層 | 從 conviction 的 resonance_evidence 取回原話佐證（ChromaDB get by ID），解決「過度抽象丟失真實性」 |
+| 時序感知查詢 | 偵測時序意圖（「變化」「以前」「最近」），取不同時期 traces 讓 LLM 看到變化軌跡 |
+| 信心校準 | 證據不足時提示「不確定」而非猜測（distance > 0.8 → low_confidence） |
+
+### 第三輪：全引擎效能 review
+
+| 改動 | 原本 | 修正後 | 影響範圍 |
+|------|------|--------|----------|
+| LLM 分級（tier） | 全部用 Sonnet | 瑣事用 Haiku，只有最終生成用 Sonnet | 省 ~80% LLM 成本 |
+| Embedding batch 化 | conviction 369 次逐一 encode | 1 次 batch encode | detect/contradiction/cluster 加速 5-10x |
+| Daily batch signal cache | load_all() 呼叫 2+ 次 | 1 次，傳入共用 store + signal_map | daily batch 整體加速 |
+| Contradiction pair cache | 每次重掃全部 1,035 對 | checked_pairs.json 跳過已檢查的 | 大幅減少 LLM 呼叫 |
+| 移除 dead code | `_check_decision_followups` 從未被呼叫 | 刪除 | 減少混淆 |
+
+### LLM 分級對照表
+
+| 模組 | 任務 | Tier | 模型 |
+|------|------|------|------|
+| conviction_detector | 歸納 conviction statement | light | Haiku |
+| contradiction_alert | 分類兩個 conviction 關係 | light | Haiku |
+| frame_clusterer | 生成 frame metadata | light | Haiku |
+| identity_scanner | 生成 identity 表述 | light | Haiku |
+| trace_extractor | 提取推理軌跡（batch） | light | Haiku |
+| daily_batch | digest / weekly report | light | Haiku |
+| **query_engine** | **query / generate 最終生成** | **heavy** | **Sonnet** |
 
 ## Phase 2 新增模組說明
 
-### conviction_detector.py（Cross-direction + Authority 加權）
+### conviction_detector.py（Cross-direction + Authority 加權 + Batch Embedding）
 - **Cross-direction 門檻**：`_has_cross_direction()` 檢查 signals 是否同時有 input 和 output，只有單方向 → cap 在 0.5
 - **Authority 加權**：`_compute_authority_weight()` 根據 signal 的 authority 欄位計算乘數
 - **全量重算**：detect 結束時從每個 conviction 的 `resonance_evidence` 回溯 signal_ids，重算所有 strength
-- 背景：Joey 拍了投資理財短影音（output），但私下從沒聊過投資（沒有 input），系統誤判為核心信念
+- **Batch embedding**：既有 conviction 的 embedding 改用 `_get_embedder().encode()` 一次算完
+- **可選 store/signal_map**：daily_batch 傳入共用的，避免重複載入
 
-### frame_clusterer.py（Layer 4，v2→v3 調優）
+### frame_clusterer.py（Layer 4，v2→v3 調優 + Batch Embedding）
 - threshold 0.55→0.52，min_traces 5→3
-- 產出 5 frames（原 4），覆蓋更多 traces
+- trace embedding 改用 batch encode（原本是 list comprehension 逐一算）
 - 全量覆寫（每次重新聚類），不做增量更新
 
 ### identity_scanner.py（Layer 5，護欄模式）
@@ -98,12 +138,16 @@ config/default.yaml           ← claude_code backend + 防護設定
 - fallback 機制：沒有達到 coverage 門檻時，取 top-3 出現在 2+ frames 的 conviction
 - Identity 在 prompt 中的角色降級為底線護欄
 
-### query_engine.py（五層感知 RAG + Generation Mode）
+### query_engine.py（五層感知 RAG + 效能優化 + CloneMemBench 增強）
+- **資料快取**：`_cache` dict + `_get_cached()` + `invalidate_cache()`
 - **反射匹配**：關鍵字命中 trigger_patterns → 跳過 embedding，< 1ms
 - **embedding 匹配**：用 ChromaDB 索引找最相關的 frame
-- **trace 檢索**：用 ChromaDB 索引找最相關的推理軌跡
-- **identity 檢查**：底線護欄，只在矛盾時修正，不主動引導內容方向
-- **build_index()**：一次性預建 trace/frame 的 embedding 索引
+- **conviction 向量搜尋**：`_find_relevant_convictions()` 用 ChromaDB 索引找跟問題最相關的信念
+- **trace 檢索**：用 ChromaDB 索引，時序查詢走 `_find_temporal_traces()`
+- **signal 回溯**：`_collect_raw_signals()` 從 conviction 回溯原話佐證
+- **信心校準**：`_check_low_confidence()` 檢查匹配品質
+- **build_index()**：預建 trace/frame/conviction 三種索引
+- **共用 prompt 組裝**：`_build_common_context()` 抽出共用邏輯
 
 #### Generation Mode
 - **generate()**：用五層思維模型產出完整內容，支援四種 output_type：
@@ -111,14 +155,18 @@ config/default.yaml           ← claude_code backend + 防護設定
   - `post`：200-400 字社群貼文
   - `script`：200-400 字短影音腳本（標註秒數）
   - `decision`：300-600 字決策分析
-- 與 query 共用五層感知流程，但 generation 用更多 traces（8 vs 5）
+- 與 query 共用 `_run_five_layer_pipeline()`，但 generation 用更多 traces（8 vs 5）、convictions（7 vs 5）
 - **ask()**：統一入口，關鍵字自動路由 query 或 generate
 
-#### 測試結果（2026-02-09）
-- query：不同問題走不同框架（帶團隊→系統設計、投資→長期主義、創作→行動優先），不再全部收束到同一結論
-- generate：article/script/decision 品質驗證通過
-- ask 自動路由：問句→query、「幫我寫腳本」→generate(script) 正確分流
-- cross-direction 效果：純短影音投資 conviction 從 core 降到 developing/emerging
+### contradiction_alert.py（Pair Cache）
+- `checked_pairs.json` 記錄已 LLM 確認過的 pair
+- 下次 scan 只對新 conviction 相關的 pair 呼叫 LLM
+- pair key 排序確保 (a,b)/(b,a) 一致性
+- batch embedding 取代逐一計算
+
+### daily_batch.py（Signal Cache + Dead Code 清理）
+- `run_daily()` 只建一次 `SignalStore` + `load_all()`，傳給 detect/extract 共用
+- 移除從未呼叫的 `_check_decision_followups()`
 
 ## LLM Backend
 
@@ -126,13 +174,13 @@ config/default.yaml           ← claude_code backend + 防護設定
 |---------|------|------|
 | `local` | Ollama localhost:11434 | 本地免費，需啟動 Ollama |
 | `cloud` | Cloudflare AI Gateway | 未設定 |
-| `claude_code` | Agent SDK + 訂閱認證 | ✅ 目前主力，不需 API key |
+| `claude_code` | Agent SDK + 訂閱認證 | ✅ 目前主力，Sonnet + Haiku 分級 |
 
 ## 下一步
 
 ### 立即可做
-- [ ] 重跑 cluster → scan-identity → build-index（套用最新 conviction strength）
-- [ ] 測試更新後的 ask/generate 品質
+- [ ] 重跑 cluster → scan-identity → build-index（套用最新 conviction strength + conviction 索引）
+- [ ] 測試更新後的 ask/generate 品質（驗證 signal 回溯 + 時序查詢 + 信心校準）
 
 ### Phase 2 剩餘
 - [x] Generation Mode — 數位分身可產出文章/貼文/腳本/決策
@@ -140,11 +188,16 @@ config/default.yaml           ← claude_code backend + 防護設定
 - [x] Identity 護欄化 — 從綁架輸出改為底線護欄
 - [x] Frame 調優 — 4→5 frames，覆蓋更多 traces
 - [x] Cross-direction 門檻 — 解決「他講的不代表他信的」
+- [x] 查詢效能優化 — 向量索引 + 快取 + batch embedding + LLM 分級
+- [x] CloneMemBench 增強 — signal 回溯 + 時序查詢 + 信心校準
 - [ ] Signal 預過濾（ingest 時 embedding 快篩，增量 conviction 更新）
 - [ ] 信念漂移偵測（定期重算 conviction embedding，方向變化 > 閾值 → 警報）
 - [ ] 動態 strength 調整（PID 概念，取代固定 ±0.05）
 
-### Phase 2.5 — 外部整合層（API Server + Demand Signal）⭐ 新增
+### 已識別但未修的效能問題
+- [ ] frame/identity 全量重建（P3，目前 weekly 頻率可接受，需增量更新邏輯）
+
+### Phase 2.5 — 外部整合層（API Server + Demand Signal）
 - [ ] FastAPI 薄包裝（把現有 CLI 的 ask/query/generate 包成 HTTP API）
 - [ ] 認證機制（四種角色：Owner / Agent / Viewer / System）
 - [ ] Demand log 側錄（非 Owner 查詢自動記錄）
@@ -168,7 +221,7 @@ config/default.yaml           ← claude_code backend + 防護設定
 # 完整流程（首次）
 mind-spiral cluster --owner joey         # 聚類情境框架（Layer 4）
 mind-spiral scan-identity --owner joey   # 掃描身份核心（Layer 5）
-mind-spiral build-index --owner joey     # 建立向量索引（加速查詢）
+mind-spiral build-index --owner joey     # 建立向量索引（trace/frame/conviction）
 mind-spiral ask --owner joey "定價怎麼看？"        # 統一入口（自動判斷 query）
 mind-spiral ask --owner joey "幫我寫一篇短影音腳本"  # 統一入口（自動判斷 generate）
 mind-spiral query --owner joey "定價怎麼看？"        # 直接 query
@@ -192,6 +245,10 @@ uv run python migrate_atoms.py --atoms /path/to/atoms.jsonl --owner joey
 ## Git log
 
 ```
+95cad4d perf: daily batch signal cache + contradiction pair cache + 移除 dead code
+a5a4a24 perf: 查詢效能大幅優化 + LLM 分級省成本 + CloneMemBench 啟發增強
+cd68c4c docs: 新增外部整合層設計 — Mind Spiral 作為獨立 API Server
+950f88f docs: 更新 HANDOFF — cross-direction 門檻 + identity 護欄 + frame v3
 e5d2dde feat: conviction strength 加入 cross-direction 門檻 + authority 加權
 62bb366 fix: identity 從綁架輸出改為底線護欄 + frame 聚類調優
 0b2abc9 docs: 更新 CLAUDE.md — 加入 ask/generate 指令說明
