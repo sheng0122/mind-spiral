@@ -21,8 +21,8 @@ print(f"[{datetime.now().isoformat()}] 開始全量處理 v2（分組模式）",
 
 # Step 1: Conviction detection
 print("[1/2] Conviction detection...", flush=True)
-new_convictions = detect_convictions(owner_id, config)
-print(f"  新 convictions: {len(new_convictions)}", flush=True)
+new_convictions, strength_changes = detect_convictions(owner_id, config)
+print(f"  新 convictions: {len(new_convictions)}，strength 變動: {len(strength_changes)}", flush=True)
 
 # Step 2: 全量 trace extraction（分批，每批 10 組）
 print("[2/2] Trace extraction v2（分組模式）...", flush=True)

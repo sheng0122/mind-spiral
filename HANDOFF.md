@@ -179,7 +179,7 @@ config/default.yaml           ← claude_code backend + Haiku/Sonnet 分級 + �
 ## 下一步
 
 ### 立即可做
-- [ ] 重跑 cluster → scan-identity → build-index（套用最新 conviction strength + conviction 索引）
+- [x] 重跑 cluster → scan-identity → build-index（套用最新 conviction strength + conviction 索引）
 - [ ] 測試更新後的 ask/generate 品質（驗證 signal 回溯 + 時序查詢 + 信心校準）
 
 ### Phase 2 剩餘
@@ -197,7 +197,7 @@ config/default.yaml           ← claude_code backend + Haiku/Sonnet 分級 + �
 ### 已識別但未修的效能問題
 - [ ] frame/identity 全量重建（P3，目前 weekly 頻率可接受，需增量更新邏輯）
 
-### 待修：Digest / Weekly Report 邏輯重構 ⚠️
+### ~~待修：Digest / Weekly Report 邏輯重構~~ ✅ 已完成（2026-02-10）
 
 目前 `daily_batch.py` 的 `_generate_digest()` 和 `run_weekly()` 有以下設計問題：
 
@@ -297,6 +297,20 @@ mind-spiral outcome --owner joey --trace-id xxx --result positive --note "成效
 # 資料匯入
 uv run python migrate_atoms.py --atoms /path/to/atoms.jsonl --owner joey
 ```
+
+## 本次修改紀錄（2026-02-10）
+
+### Digest / Weekly Report 重構
+- `conviction_detector.py`：`detect()` 回傳 `(new_convictions, strength_changes)` + 每次存 strength snapshot
+- `daily_batch.py`：digest 永遠有內容（fallback 回顧 top-3 信念 + 框架）、新增【信念強化/減弱】區塊、五層深度
+- `daily_batch.py`：weekly 改用 `strength_snapshots.jsonl` 計算真實 delta，新增推理風格分佈 + 框架資訊
+- `query_engine.py`：修 bug `c.domain` → `c.domains`
+- `cli.py`：detect 命令顯示 strength 變動
+- `run_full_extract.py`：適配新 detect 回傳格式
+- `CLAUDE.md`：`pip install -e .` → `uv sync`
+
+### 新檔案
+- `data/{owner}/strength_snapshots.jsonl` — 每次 detect 後自動產生
 
 ## Git log
 

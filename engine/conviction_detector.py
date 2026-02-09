@@ -256,13 +256,16 @@ def detect(
     config: dict,
     store: SignalStore | None = None,
     signal_map: dict | None = None,
-) -> list[Conviction]:
+) -> tuple[list[Conviction], list[dict]]:
     """主入口：偵測 convictions。
 
     1. 從 ChromaDB 取所有 signal embeddings
     2. AgglomerativeClustering 聚類
     3. 每個 cluster 做五種共鳴收斂檢查
     4. 通過門檻的 cluster 生成/更新 conviction
+
+    回傳 (new_convictions, strength_changes)。
+    strength_changes: [{"conviction_id", "statement", "old", "new", "delta"}]
 
     可傳入 store 和 signal_map 避免重複載入（daily_batch 共用）。
     """
@@ -273,15 +276,15 @@ def detect(
     collection = store._collection
     all_data = collection.get(include=["embeddings", "documents"])
     if not all_data["ids"] or all_data["embeddings"] is None:
-        return []
+        return [], []
 
     ids = all_data["ids"]
     embeddings = np.array(all_data["embeddings"])
     if embeddings.size == 0:
-        return []
+        return [], []
 
     if len(ids) < 2:
-        return []
+        return [], []
 
     # Step 1: AgglomerativeClustering
     threshold = config.get("engine", {}).get("conviction", {}).get("similarity_threshold", 0.75)
@@ -370,6 +373,9 @@ def detect(
             )
             new_convictions.append(conviction)
 
+    # 快照：重算前先記錄既有 conviction 的 strength
+    old_strengths = {c.conviction_id: c.strength.score for c in existing}
+
     # 全量重算所有 conviction 的 strength（套用 cross-direction + authority 新規則）
     all_convictions = existing + new_convictions
     for conv in all_convictions:
@@ -408,4 +414,28 @@ def detect(
 
     _save_convictions(owner_dir, all_convictions)
 
-    return new_convictions
+    # 計算 strength 變動（|delta| > 0.05 才回傳）
+    strength_changes: list[dict] = []
+    for conv in all_convictions:
+        old = old_strengths.get(conv.conviction_id)
+        if old is not None:
+            delta = round(conv.strength.score - old, 3)
+            if abs(delta) > 0.05:
+                strength_changes.append({
+                    "conviction_id": conv.conviction_id,
+                    "statement": conv.statement,
+                    "old": old,
+                    "new": conv.strength.score,
+                    "delta": delta,
+                })
+
+    # 存 strength snapshot
+    snapshot = {
+        "date": today,
+        "strengths": {c.conviction_id: c.strength.score for c in all_convictions},
+    }
+    snapshot_path = owner_dir / "strength_snapshots.jsonl"
+    with open(snapshot_path, "a") as f:
+        f.write(json.dumps(snapshot, ensure_ascii=False) + "\n")
+
+    return new_convictions, strength_changes

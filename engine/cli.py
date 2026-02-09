@@ -79,7 +79,13 @@ def detect(owner: str):
     from engine.conviction_detector import detect as run_detect
 
     config = load_config()
-    new_convictions = run_detect(owner, config)
+    new_convictions, strength_changes = run_detect(owner, config)
+
+    if strength_changes:
+        click.echo(f"\n=== {len(strength_changes)} 個信念 strength 變動 ===")
+        for sc in strength_changes[:10]:
+            sign = "+" if sc["delta"] > 0 else ""
+            click.echo(f"  {sc['statement'][:40]}… {sc['old']:.2f} → {sc['new']:.2f}（{sign}{sc['delta']:.2f}）")
 
     if not new_convictions:
         click.echo(f"[{owner}] 沒有新的 conviction 候選")

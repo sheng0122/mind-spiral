@@ -165,7 +165,7 @@ data/
 ```bash
 # 安裝
 cd 18-mind-spiral
-pip install -e .
+uv sync
 
 # 日常操作
 mind-spiral stats --owner joey

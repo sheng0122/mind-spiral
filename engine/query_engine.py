@@ -189,7 +189,7 @@ def build_index(owner_id: str, config: dict) -> dict:
             ids.append(c.conviction_id)
             documents.append(c.statement)
             metadatas.append({
-                "domain": c.domain or "",
+                "domain": ", ".join(c.domains) if c.domains else "",
                 "strength": c.strength.score,
                 "level": c.strength.level,
             })
