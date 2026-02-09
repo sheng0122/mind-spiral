@@ -302,7 +302,7 @@ def extract(
     ]
 
     # 批次呼叫 LLM
-    responses = batch_llm(prompts, config=config, tier="light")
+    responses = batch_llm(prompts, config=config, tier="medium")
 
     # 解析結果
     new_traces: list[ReasoningTrace] = []

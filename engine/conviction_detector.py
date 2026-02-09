@@ -152,7 +152,7 @@ def _generate_conviction_statement(signals: list[Signal], config: dict) -> str |
         "- 絕對不要輸出「我需要」「我無法」「讓我」「根據以上」等 AI 自我指涉語句\n"
         "- 如果這些想法太零散無法歸納出明確信念，只回答 SKIP"
     )
-    result = call_llm(prompt, config=config, tier="light").strip().strip("「」""\"'")
+    result = call_llm(prompt, config=config, tier="medium").strip().strip("「」""\"'")
 
     if not result or result.upper() == "SKIP":
         return None

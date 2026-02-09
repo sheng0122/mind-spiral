@@ -57,7 +57,7 @@ async def _claude_code_query(
 ) -> str:
     """用 Claude Agent SDK 的 query() 做單次 LLM 呼叫。
 
-    tier: "light" 用 Haiku（分類、摘要、短輸出），"heavy" 用 Sonnet（生成、推理）。
+    tier: "light"=Haiku, "medium"=Sonnet, "heavy"=Opus。
     """
     from claude_agent_sdk import (
         AssistantMessage,
@@ -69,11 +69,13 @@ async def _claude_code_query(
     cfg = config or load_config()
     cc_cfg = cfg.get("llm", {}).get("claude_code", {})
 
-    # 根據 tier 選模型
+    # 三檔制：light=Haiku, medium=Sonnet, heavy=Opus
     if tier == "light":
         model = cc_cfg.get("model_light", "claude-haiku-4-5-20251001")
-    else:
-        model = cc_cfg.get("model", "claude-sonnet-4-5-20250929")
+    elif tier == "medium":
+        model = cc_cfg.get("model_medium", "claude-sonnet-4-5-20250929")
+    else:  # heavy
+        model = cc_cfg.get("model_heavy", "claude-opus-4-6")
 
     full_prompt = f"{system}\n\n{prompt}" if system else prompt
 
@@ -127,8 +129,7 @@ def call_llm(
 ) -> str:
     """單次 LLM 呼叫。
 
-    tier: "light" = 瑣事（分類、摘要、短輸出），"heavy" = 生成/推理。
-    claude_code backend 會根據 tier 選模型（Haiku vs Sonnet）。
+    tier: "light"=Haiku（分類/填表）, "medium"=Sonnet（歸納/推理）, "heavy"=Opus（最終生成）。
     """
     cfg = config or load_config()
     backend = cfg["engine"]["llm_backend"]

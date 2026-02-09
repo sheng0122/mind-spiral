@@ -47,9 +47,10 @@ llm:
     model: ""
     api_key_env: CF_AIG_TOKEN
   claude_code:
-    model: claude-sonnet-4-5-20250929    # heavy tier：生成/推理
-    model_light: claude-haiku-4-5-20251001  # light tier：分類/摘要/短輸出
-    max_concurrent: 5                    # batch_llm 並行數量
+    model_heavy: claude-opus-4-6              # heavy：最終生成（query/generate）
+    model_medium: claude-sonnet-4-5-20250929  # medium：歸納/推理（conviction/trace）
+    model_light: claude-haiku-4-5-20251001    # light：分類/填表（contradiction/frame metadata）
+    max_concurrent: 5                         # batch_llm 並行數量
 
 line:
   channel_access_token_env: LINE_CHANNEL_ACCESS_TOKEN

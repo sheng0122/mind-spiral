@@ -107,17 +107,17 @@ config/default.yaml           ← claude_code backend + Haiku/Sonnet 分級 + �
 | Contradiction pair cache | 每次重掃全部 1,035 對 | checked_pairs.json 跳過已檢查的 | 大幅減少 LLM 呼叫 |
 | 移除 dead code | `_check_decision_followups` 從未被呼叫 | 刪除 | 減少混淆 |
 
-### LLM 分級對照表
+### LLM 三檔制對照表
 
 | 模組 | 任務 | Tier | 模型 |
 |------|------|------|------|
-| conviction_detector | 歸納 conviction statement | light | Haiku |
 | contradiction_alert | 分類兩個 conviction 關係 | light | Haiku |
 | frame_clusterer | 生成 frame metadata | light | Haiku |
 | identity_scanner | 生成 identity 表述 | light | Haiku |
-| trace_extractor | 提取推理軌跡（batch） | light | Haiku |
 | daily_batch | digest / weekly report | light | Haiku |
-| **query_engine** | **query / generate 最終生成** | **heavy** | **Sonnet** |
+| conviction_detector | 歸納 conviction statement | medium | Sonnet |
+| trace_extractor | 提取推理軌跡（batch） | medium | Sonnet |
+| **query_engine** | **query / generate 最終生成** | **heavy** | **Opus** |
 
 ## Phase 2 新增模組說明
 
@@ -174,7 +174,7 @@ config/default.yaml           ← claude_code backend + Haiku/Sonnet 分級 + �
 |---------|------|------|
 | `local` | Ollama localhost:11434 | 本地免費，需啟動 Ollama |
 | `cloud` | Cloudflare AI Gateway | 未設定 |
-| `claude_code` | Agent SDK + 訂閱認證 | ✅ 目前主力，Sonnet + Haiku 分級 |
+| `claude_code` | Agent SDK + 訂閱認證 | ✅ 目前主力，三檔制：Opus + Sonnet + Haiku |
 
 ## 下一步
 
@@ -196,6 +196,62 @@ config/default.yaml           ← claude_code backend + Haiku/Sonnet 分級 + �
 
 ### 已識別但未修的效能問題
 - [ ] frame/identity 全量重建（P3，目前 weekly 頻率可接受，需增量更新邏輯）
+
+### 待修：Digest / Weekly Report 邏輯重構 ⚠️
+
+目前 `daily_batch.py` 的 `_generate_digest()` 和 `run_weekly()` 有以下設計問題：
+
+**問題 1：Digest 只看「今天新增的」，看不到全貌**
+- `_generate_digest()` 只拿 `new_convictions` 和 `contradictions`
+- contradiction pair cache 生效後，第二天起 contradictions 幾乎永遠是空
+- 沒有新 signal 進來 → `new_convictions` 也空 → digest 回傳空字串 → 沒有早晨簡報
+- 一個「了解你的朋友」不該因為「今天沒新事」就沉默
+
+**問題 2：Digest 不知道「什麼被強化了」**
+- `detect()` 全量重算所有 conviction strength，但只回傳 `new_convictions`
+- 既有 conviction 的 strength 變動（變強/變弱）完全沒傳給 digest
+- 使用者不知道「今天我的哪些信念變強/變弱了」
+
+**問題 3：Weekly 用日期篩選，但日期欄位不可靠**
+- `first_detected >= week_ago` 是字串比較
+- 很多 conviction 同一天 batch 建立，「本週新發現」可能一直是 0 或全部
+
+**問題 4：Weekly 沒有 strength 歷史紀錄**
+- 註解寫「比對 convictions 的 strength 變化」，但沒有歷史 snapshot
+- 只看當前 strength，無法算「這週漲了跌了」
+- `strength.trend` 是 detect 時計算的靜態欄位，不是 weekly 自己比對
+
+**問題 5：兩者都沒用到五層架構的深度**
+- 只看 conviction 層，不看 trace/frame/identity
+- 不知道「今天提取了什麼推理軌跡」「哪個框架最活躍」「身份核心有沒有動搖」
+
+#### 修正方案
+
+**1. Digest 永遠有內容（改 `_generate_digest`）**
+- 沒有新事時也回顧：最活躍的信念 top-3、最近的推理模式、下一個待追蹤決策
+- 從 `cached["frames"]` 取最活躍框架名稱，讓 digest 有五層深度
+- 確保 digest 永遠不回傳空字串
+
+**2. 追蹤 strength 變動（改 `detect` + `_generate_digest`）**
+- `detect()` 回傳不只 `new_convictions`，也回傳 `strength_changes: list[dict]`
+  - 格式：`{"conviction_id": ..., "statement": ..., "old": 0.6, "new": 0.72, "delta": +0.12}`
+- detect 前先快照既有 strength，detect 後比對差異，只回傳 |delta| > 0.05 的
+- `_generate_digest` 新增【信念強化/減弱】區塊
+
+**3. Strength 歷史快照（新增 `strength_snapshots.jsonl`）**
+- 每次 `detect()` 完成後，存一行：`{"date": "2026-02-10", "strengths": {"conv_id": score, ...}}`
+- `run_weekly()` 讀取本週和上週的 snapshot，計算每個 conviction 的 delta
+- 取代目前不可靠的 `first_detected` 日期篩選
+
+**4. Weekly 加入五層摘要**
+- 本週新 traces 數量 + 推理風格分佈
+- 最活躍的 frame（被匹配最多次的）
+- identity 覆蓋率變化（如果有重跑 scan-identity）
+
+#### 涉及檔案
+- `engine/daily_batch.py` — 主要改動
+- `engine/conviction_detector.py` — detect 回傳 strength_changes
+- `data/{owner}/strength_snapshots.jsonl` — 新檔案
 
 ### Phase 2.5 — 外部整合層（API Server + Demand Signal）
 - [ ] FastAPI 薄包裝（把現有 CLI 的 ask/query/generate 包成 HTTP API）
@@ -245,6 +301,7 @@ uv run python migrate_atoms.py --atoms /path/to/atoms.jsonl --owner joey
 ## Git log
 
 ```
+fbf31ff docs: 更新 HANDOFF — 效能優化三輪記錄 + LLM 分級對照表 + P2 修正清單
 95cad4d perf: daily batch signal cache + contradiction pair cache + 移除 dead code
 a5a4a24 perf: 查詢效能大幅優化 + LLM 分級省成本 + CloneMemBench 啟發增強
 cd68c4c docs: 新增外部整合層設計 — Mind Spiral 作為獨立 API Server
