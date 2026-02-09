@@ -97,12 +97,14 @@ def scan(owner_id: str, config: dict) -> list[dict]:
     results: list[dict] = []
     min_confidence = config.get("engine", {}).get("contradiction", {}).get("min_confidence", 7)
 
+    # Phase 1: 篩選需要 LLM 的 pairs（cosine 落在 0.7~0.95）
+    candidates: list[tuple[Conviction, Conviction, float, tuple[str, str]]] = []
+
     for i, (c1, e1) in enumerate(conv_embeddings):
         for j, (c2, e2) in enumerate(conv_embeddings):
             if i >= j:
                 continue
 
-            # 排序 pair key 確保一致性
             pair_key = tuple(sorted([c1.conviction_id, c2.conviction_id]))
             if pair_key in previously_checked:
                 continue
@@ -112,9 +114,48 @@ def scan(owner_id: str, config: dict) -> list[dict]:
             if sim < 0.7 or sim > 0.95:
                 continue
 
-            # LLM 確認（含信心分數過濾）
-            relationship, confidence = _classify_tension(c1, c2, config)
-            if not relationship:
+            candidates.append((c1, c2, sim, pair_key))
+
+    # Phase 2: 批次 LLM 分類（每次最多 50 pairs，避免長時間阻塞）
+    max_llm_per_scan = config.get("engine", {}).get("contradiction", {}).get("max_llm_per_scan", 50)
+    candidates = candidates[:max_llm_per_scan]
+
+    if candidates:
+        from engine.llm import batch_llm
+
+        prompts = []
+        for c1, c2, _, _ in candidates:
+            prompts.append(
+                "以下是同一個人持有的兩個信念：\n\n"
+                f"A: {c1.statement}\n"
+                f"B: {c2.statement}\n\n"
+                "請判斷這兩個信念的關係，用以下格式回答（一行）：\n"
+                "關係詞 信心分數(1-10)\n\n"
+                "可用的關係詞：\n"
+                "- contradiction（直接矛盾）\n"
+                "- evolution（觀點演進，B 取代 A）\n"
+                "- context_dependent（在不同情境下都合理）\n"
+                "- creative_tension（有張力但共存）\n"
+                "- unrelated（無關）\n\n"
+                "範例：contradiction 8\n"
+                "只回答一行。"
+            )
+
+        llm_results = batch_llm(prompts, config=config, tier="light")
+        valid_relationships = {"contradiction", "evolution", "context_dependent", "creative_tension"}
+
+        for (c1, c2, sim, _), raw in zip(candidates, llm_results):
+            result_text = raw.strip().lower()
+            parts = result_text.split()
+            relationship = parts[0] if parts else ""
+            confidence = 5
+            if len(parts) >= 2:
+                try:
+                    confidence = int(parts[1])
+                except ValueError:
+                    pass
+
+            if relationship not in valid_relationships:
                 continue
             if confidence < min_confidence:
                 continue
@@ -129,7 +170,6 @@ def scan(owner_id: str, config: dict) -> list[dict]:
                 "confidence": confidence,
             })
 
-            # 寫入 tensions
             if relationship == "contradiction":
                 tension_a = ConvictionTension(
                     opposing_conviction=c2.conviction_id,

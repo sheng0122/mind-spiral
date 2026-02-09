@@ -319,45 +319,112 @@ def detect(
             existing_embeddings.append((c, np.array(emb)))
 
     min_resonance = config.get("engine", {}).get("conviction", {}).get("min_resonance_count", 2)
+    match_threshold = config.get("engine", {}).get("conviction", {}).get("match_threshold", 0.80)
     new_convictions: list[Conviction] = []
     updated_ids: set[str] = set()
     today = datetime.now().strftime("%Y-%m-%d")
 
+    # 收集已被 conviction 覆蓋的 signal IDs（用於跳過已覆蓋的 clusters）
+    covered_signal_ids: set[str] = set()
+    for conv in existing:
+        if conv.resonance_evidence:
+            re = conv.resonance_evidence
+            if re.temporal_persistence:
+                for tp in re.temporal_persistence:
+                    covered_signal_ids.update(tp.signal_ids)
+            if re.cross_context_consistency:
+                for ccc in re.cross_context_consistency:
+                    covered_signal_ids.update(ccc.signal_ids)
+            if re.input_output_convergence:
+                for ioc in re.input_output_convergence:
+                    covered_signal_ids.add(ioc.input_signal)
+                    covered_signal_ids.add(ioc.output_signal)
+            if re.spontaneous_mentions:
+                for sm in re.spontaneous_mentions:
+                    covered_signal_ids.add(sm.signal_id)
+            if re.action_alignment:
+                for aa in re.action_alignment:
+                    covered_signal_ids.add(aa.statement_signal)
+                    covered_signal_ids.add(aa.action_signal)
+
+    # 預建 existing embedding 矩陣（向量化比對，取代逐一 loop）
+    existing_emb_matrix = None
+    if existing_embeddings:
+        existing_emb_matrix = np.array([emb for _, emb in existing_embeddings])
+
+    # Phase 1: 篩選需要 LLM 的 unmatched clusters
+    pending_clusters: list[tuple[list[Signal], ResonanceEvidence, int, np.ndarray]] = []
+
     for label, signal_ids in clusters.items():
-        if len(signal_ids) < 3:  # 至少 3 個 signals 才考慮
+        if len(signal_ids) < 3:
             continue
 
         cluster_signals = [signal_map[sid] for sid in signal_ids if sid in signal_map]
         if not cluster_signals:
             continue
 
-        # Step 2: 共鳴收斂檢查
+        # 跳過已完全覆蓋的 cluster（所有 signals 都已被某個 conviction 涵蓋）
+        signal_set = set(signal_ids)
+        if signal_set.issubset(covered_signal_ids):
+            continue
+
+        # 共鳴收斂檢查
         evidence, resonance_count = _build_resonance(cluster_signals)
         if resonance_count < min_resonance:
             continue
 
-        # Step 3: 比對既有 convictions
-        cluster_emb = embeddings[[i for i, sid in enumerate(ids) if sid in set(signal_ids)]].mean(axis=0)
+        # 比對既有 convictions（門檻從 0.85 降為 0.80）
+        idx_in_cluster = [i for i, sid in enumerate(ids) if sid in signal_set]
+        cluster_emb = embeddings[idx_in_cluster].mean(axis=0)
         matched_existing = None
-        if existing_embeddings:
-            for conv, conv_emb in existing_embeddings:
-                sim = float(np.dot(cluster_emb, conv_emb) / (np.linalg.norm(cluster_emb) * np.linalg.norm(conv_emb) + 1e-8))
-                if sim > 0.85 and conv.conviction_id not in updated_ids:
+
+        if existing_emb_matrix is not None:
+            # 向量化計算所有 similarities
+            sims = existing_emb_matrix @ cluster_emb / (
+                np.linalg.norm(existing_emb_matrix, axis=1) * np.linalg.norm(cluster_emb) + 1e-8
+            )
+            best_idx = int(np.argmax(sims))
+            if sims[best_idx] > match_threshold:
+                conv = existing_embeddings[best_idx][0]
+                if conv.conviction_id not in updated_ids:
                     matched_existing = conv
-                    break
 
         if matched_existing:
-            # 更新既有 conviction 的 strength
             matched_existing.strength = _compute_strength(resonance_count, len(cluster_signals), cluster_signals)
             matched_existing.resonance_evidence = evidence
             if matched_existing.lifecycle:
                 matched_existing.lifecycle.last_reinforced = today
             updated_ids.add(matched_existing.conviction_id)
         else:
-            # 生成新 conviction
-            statement = _generate_conviction_statement(cluster_signals, config)
-            if statement is None:
-                continue  # LLM 幻覺或無法歸納，跳過
+            pending_clusters.append((cluster_signals, evidence, resonance_count, cluster_emb))
+
+    # Phase 2: 批次 LLM 生成新 conviction statements
+    if pending_clusters:
+        from engine.llm import batch_llm
+
+        prompts = []
+        for cluster_signals, _, _, _ in pending_clusters:
+            texts = [f"- [{s.direction}/{s.source.context}] {s.content.text}" for s in cluster_signals[:10]]
+            prompt = (
+                "以下是一個人在不同場景下反覆表達的類似想法：\n\n"
+                + "\n".join(texts)
+                + "\n\n請用一句簡潔的中文（最多 50 字）總結這個人的核心信念。"
+                "只輸出信念本身，不要加前綴或解釋。\n\n"
+                "重要規則：\n"
+                "- 你是在描述「這個人」的信念，不是你自己的想法\n"
+                "- 絕對不要輸出「我需要」「我無法」「讓我」「根據以上」等 AI 自我指涉語句\n"
+                "- 如果這些想法太零散無法歸納出明確信念，只回答 SKIP"
+            )
+            prompts.append(prompt)
+
+        results = batch_llm(prompts, config=config, tier="medium")
+
+        for (cluster_signals, evidence, resonance_count, _), raw_statement in zip(pending_clusters, results):
+            statement = raw_statement.strip().strip("「」""\"'")
+            if not statement or statement.upper() == "SKIP":
+                continue
+            if _is_llm_hallucination(statement):
+                continue
             conviction = Conviction(
                 owner_id=owner_id,
                 conviction_id=f"conv_{uuid.uuid4().hex[:8]}",
