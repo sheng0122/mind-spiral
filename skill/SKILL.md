@@ -90,11 +90,9 @@ Headers: Authorization: Bearer $MIND_SPIRAL_OWNER_TOKEN
 
 ## 認證
 
-| 角色 | 權限 |
-|------|------|
-| owner（`Authorization: Bearer $MIND_SPIRAL_OWNER_TOKEN`） | 全部含 ingest |
-| agent / viewer（各自 token） | ask/query/generate/stats + 探索 |
-| public（無 token） | health/stats |
+**查詢類 endpoint 不需要 token**，直接呼叫即可（/ask、/context、/query、/generate、探索 endpoints、/stats、/health）。
+
+唯一需要認證的是 `/ingest`（寫入信號），必須帶 owner token：`Authorization: Bearer $MIND_SPIRAL_OWNER_TOKEN`
 
 ## 深度參考
 
