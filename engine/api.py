@@ -8,6 +8,7 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from engine.auth import Role, require_authenticated, require_owner, resolve_role
 from engine.config import get_owner_dir, load_config
@@ -41,9 +42,12 @@ app.add_middleware(
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
-    return ErrorResponse(
-        error=ErrorDetail(code=str(exc.status_code), message=exc.detail),
-    ).model_dump()
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=ErrorResponse(
+            error=ErrorDetail(code=str(exc.status_code), message=exc.detail),
+        ).model_dump(),
+    )
 
 
 # ─── Helpers ───
