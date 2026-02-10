@@ -2,7 +2,7 @@
 
 ## 當前狀態
 
-Phase 0-2 完成 + 效能大幅優化。五層架構全部有 Joey 實際數據，端到端 pipeline 已驗證。Generation mode 上線，數位分身可產出內容（文章/貼文/腳本/決策）。查詢效能經過三輪優化：向量索引全覆蓋、LLM 分級省成本、batch embedding 加速、資料快取去重複載入。
+Phase 0-2.5 完成，已部署到 VPS。五層架構全部有 Joey 實際數據，13 個 API endpoints + 12 個 MCP tools 全部驗證通過。新增 `/context` 原料包模式（只做檢索不呼叫 LLM，< 1s），讓外部 Agent 用自己的 LLM 搭配產出。Generate prompt 改為原則導向 + per-owner 寫作風格載入。
 
 ## 數據現況（Joey）
 
@@ -329,23 +329,60 @@ uv run python migrate_atoms.py --atoms /path/to/atoms.jsonl --owner joey
 - `query_engine.py`：query/generate 最終生成從 Opus 降為 Sonnet（五層 context 已精準，不需 Opus 推理）
 - daily 從**跑不完** → **1 分鐘**，ask 從 ~40s → ~23s
 
-### Phase 2.5: FastAPI API Server（P0）+ 六種查詢模式
-- `engine/api.py`：12 個 endpoint — 基礎 6 個 + 探索 6 個（recall/explore/evolution/blindspots/connections/simulate）
-- `engine/explorer.py`：六種查詢模式核心邏輯（記憶回溯、思維展開、演變追蹤、盲區偵測、關係圖譜、模擬預測）
-- `engine/mcp_server.py`：MCP Server，11 個 tools，Claude Desktop 可直接呼叫
-- `engine/auth.py`：Bearer token 認證，從環境變數讀 `MIND_SPIRAL_OWNER_TOKEN` / `MIND_SPIRAL_AGENT_TOKENS` / `MIND_SPIRAL_VIEWER_TOKENS`
-- `engine/schemas_api.py`：Request/Response Pydantic models（AskRequest, QueryRequest, GenerateRequest, IngestRequest, APIResponse）
-- `pyproject.toml`：加 `fastapi>=0.115` + `uvicorn[standard]>=0.32`
-- `/health` 和 `/stats` 不需認證，`/ingest` 限 owner，其餘 endpoint 任何角色可呼叫
-- 啟動：`uv run uvicorn engine.api:app --reload --port 8000`
-- 已驗證：health、stats、ask 三個 endpoint 正常運作
+### Phase 2.5: API Server + Explorer + Docker 部署
+- `engine/api.py`：13 個 endpoint — 基礎 7 個（含 /context）+ 探索 6 個
+- `engine/explorer.py`：六種查詢模式（recall/explore/evolution/blindspots/connections/simulate）
+- `engine/mcp_server.py`：MCP Server，12 個 tools（含 mind_spiral_context）
+- `engine/auth.py`：Bearer token 認證，四種角色
+- `engine/schemas_api.py`：Request/Response Pydantic models
+- `engine/llm.py`：新增 `cloud` backend 直接呼叫 Anthropic API（三檔 model mapping）
+- `engine/signal_store.py`：embedding model 改為全域 singleton（啟動載入，避免每次請求 ~16s）
+- `engine/conviction_deduper.py`：conviction 語義去重（cosine + LLM 確認）
+- `engine/query_engine.py`：新增 `context()` 原料包函數 + generate prompt 原則導向重構 + writing_style 載入
+- `Dockerfile` + `docker-compose.yml`：Docker 部署支援
+- `skill/SKILL.md`：13 個 endpoint 完整說明 + 11 種使用情境
+- `pyproject.toml`：加 `anthropic>=0.40`
+
+### VPS 部署
+- 地址：`http://172.104.53.227:8000`（Akamai, Singapore, 2核 3.8GB）
+- Docker compose，data/ 掛載 volume
+- LLM backend: cloud（Anthropic API），embedding: google/embeddinggemma-300m
+- 13 個 endpoint 全部驗證通過
+
+### /context 原料包架構
+```
+外部 Agent（有 LLM）→ POST /context → 原料包（< 1s, 0 token）
+獨立使用（Web/CLI）→ POST /query or /generate → 含 LLM 生成
+```
+
+### 回應時間（VPS 實測，embedding model 預載後）
+| 類型 | 時間 |
+|------|------|
+| /health, /stats, /blindspots | < 0.5s |
+| /context | < 1s |
+| /recall, /explore, /evolution, /connections | 0.3-1.6s |
+| /query, /ask | ~10s |
+| /generate | ~13s |
+| /simulate | ~30s |
 
 ### 新檔案
 - `data/{owner}/strength_snapshots.jsonl` — 每次 detect 後自動產生
+- `data/{owner}/writing_style.md` — per-owner 寫作風格原則，generate 和 context 自動載入
 
 ## Git log
 
 ```
+ac50239 docs: README + Skill 加上 /context 原料包 endpoint 說明
+d5b5654 feat: /context 原料包 endpoint + generate prompt 原則導向重構
+49d0b6b docs: README 補完 — CLI 指令、Docker 部署、MCP tools 說明、環境變數
+04350d3 feat: 將 mind-spiral skill 從 04 移入專案，更新 BASE_URL + 回應時間
+bda73b4 docs: 更新文檔 — Explorer + Docker 部署 + MCP 擴展
+9ddcf50 feat: Docker 部署支援（Akamai VPS）
+94bea9a feat: Anthropic API cloud backend + embedding model singleton 優化
+f0d7c95 feat: Explorer 六種查詢模式 + conviction 去重 + MCP 擴展
+8397a0b fix: API exception handler 改用 JSONResponse 正確回傳錯誤
+4baca07 feat: MCP Server — 讓 Claude Desktop 直接呼叫 Mind Spiral 引擎
+acf494b docs: 更新全部文檔 — Phase 2.5 API Server 已完成
 c7bba79 feat: FastAPI API Server（Phase 2.5 P0）— 6 個 endpoint + token 認證
 a5f2e01 docs: 更新 HANDOFF — 效能優化第四輪 + ask/generate 測試結果 + 品質問題記錄
 79b9c4e perf: query/generate LLM 從 Opus 降為 Sonnet，回應速度提升
