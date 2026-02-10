@@ -15,17 +15,29 @@ from engine.config import get_owner_dir, load_config
 from engine.schemas_api import (
     APIResponse,
     AskRequest,
+    ConnectionsRequest,
     ErrorDetail,
     ErrorResponse,
+    EvolutionRequest,
+    ExploreRequest,
     GenerateRequest,
     IngestRequest,
     QueryRequest,
+    RecallRequest,
+    SimulateRequest,
 )
 
 _start_time = time.time()
 _config = load_config()
 
 app = FastAPI(title="Mind Spiral API", version="0.1.0")
+
+
+@app.on_event("startup")
+async def _preload_embedding_model():
+    """啟動時預載 embedding model，避免首次請求等 ~16s。"""
+    from engine.signal_store import _get_global_embedder
+    _get_global_embedder(_config)
 
 # CORS
 _cors_origins = os.environ.get("MIND_SPIRAL_CORS_ORIGINS", "*").split(",")
@@ -205,3 +217,112 @@ async def ingest_endpoint(
     return APIResponse(
         data={"ingested": count, "total_submitted": len(req.signals)},
     ).model_dump()
+
+
+# ─── Explorer Endpoints ───
+
+
+@app.post("/recall")
+async def recall_endpoint(
+    req: RecallRequest,
+    role: Role = Depends(resolve_role),
+):
+    """記憶回溯 — 搜尋原話 + 時間/情境過濾。"""
+    from engine.explorer import recall
+
+    _check_owner_exists(req.owner_id)
+    result = recall(
+        owner_id=req.owner_id,
+        text=req.text,
+        context=req.context,
+        direction=req.direction,
+        date_from=req.date_from,
+        date_to=req.date_to,
+        limit=req.limit,
+        config=_config,
+    )
+    return APIResponse(data=result).model_dump()
+
+
+@app.post("/explore")
+async def explore_endpoint(
+    req: ExploreRequest,
+    role: Role = Depends(resolve_role),
+):
+    """思維展開 — 從主題串連五層資料成樹狀結構。"""
+    from engine.explorer import explore
+
+    _check_owner_exists(req.owner_id)
+    result = explore(
+        owner_id=req.owner_id,
+        topic=req.topic,
+        depth=req.depth,
+        config=_config,
+    )
+    return APIResponse(data=result).model_dump()
+
+
+@app.post("/evolution")
+async def evolution_endpoint(
+    req: EvolutionRequest,
+    role: Role = Depends(resolve_role),
+):
+    """演變追蹤 — 信念 strength 變化 + 推理風格演變。"""
+    from engine.explorer import evolution
+
+    _check_owner_exists(req.owner_id)
+    result = evolution(
+        owner_id=req.owner_id,
+        topic=req.topic,
+        config=_config,
+    )
+    return APIResponse(data=result).model_dump()
+
+
+@app.get("/blindspots")
+async def blindspots_endpoint(
+    owner_id: str,
+    role: Role = Depends(resolve_role),
+):
+    """盲區偵測 — 說做不一致、思維慣性、輸入輸出失衡。"""
+    from engine.explorer import blindspots
+
+    _check_owner_exists(owner_id)
+    result = blindspots(owner_id=owner_id, config=_config)
+    return APIResponse(data=result).model_dump()
+
+
+@app.post("/connections")
+async def connections_endpoint(
+    req: ConnectionsRequest,
+    role: Role = Depends(resolve_role),
+):
+    """關係圖譜 — 找兩個主題之間的隱性連結。"""
+    from engine.explorer import connections
+
+    _check_owner_exists(req.owner_id)
+    result = connections(
+        owner_id=req.owner_id,
+        topic_a=req.topic_a,
+        topic_b=req.topic_b,
+        config=_config,
+    )
+    return APIResponse(data=result).model_dump()
+
+
+@app.post("/simulate")
+async def simulate_endpoint(
+    req: SimulateRequest,
+    role: Role = Depends(resolve_role),
+):
+    """模擬預測 — 假設情境下的反應路徑。"""
+    from engine.explorer import simulate
+
+    _check_owner_exists(req.owner_id)
+    result = simulate(
+        owner_id=req.owner_id,
+        scenario=req.scenario,
+        context=req.context,
+        config=_config,
+    )
+    return APIResponse(data=result).model_dump()

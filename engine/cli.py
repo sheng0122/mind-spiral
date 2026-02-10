@@ -350,5 +350,38 @@ def generate_cmd(owner: str, output_type: str, caller: str | None, extra: str, t
     click.echo(f"  身份約束: {len(result['identity_constraints'])} 個")
 
 
+@cli.command(name="dedupe")
+@click.option("--owner", required=True, help="使用者 ID")
+@click.option("--dry-run", is_flag=True, help="預覽模式，不實際執行")
+@click.option("--threshold", default=0.90, type=float, help="相似度門檻（預設 0.90）")
+def dedupe_cmd(owner: str, dry_run: bool, threshold: float):
+    """Conviction 語義去重（合併重複信念）"""
+    from engine.conviction_deduper import dedupe
+
+    config = load_config()
+    click.echo(f"[{owner}] {'預覽' if dry_run else '執行'} conviction 去重（threshold={threshold}）...")
+    result = dedupe(owner, config, dry_run=dry_run, threshold=threshold)
+
+    click.echo(f"\n=== 去重結果 ===")
+    click.echo(f"  候選 pairs: {result['pairs_found']}")
+    click.echo(f"  LLM 確認: {result['pairs_confirmed']}")
+
+    if dry_run:
+        click.echo(f"\n--- 預覽（不執行）---")
+        for d in result.get("details", []):
+            confirmed = "✓" if d.get("confirmed") else "?"
+            click.echo(f"\n  [{confirmed}] similarity={d['similarity']}")
+            click.echo(f"    保留: {d['primary']} — {d['primary_statement'][:60]}")
+            click.echo(f"    移除: {d['secondary']} — {d['secondary_statement'][:60]}")
+    else:
+        click.echo(f"  已合併: {result['merged']}")
+        if result.get("downstream_stats"):
+            click.echo(f"\n--- 下游更新 ---")
+            for k, v in result["downstream_stats"].items():
+                click.echo(f"    {k}: {v}")
+        if result["merged"] > 0:
+            click.echo(f"\n提示：請執行 `mind-spiral build-index --owner {owner}` 重建索引。")
+
+
 if __name__ == "__main__":
     cli()

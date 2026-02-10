@@ -114,5 +114,62 @@ def mind_spiral_ingest(
     return {"ingested": count, "total_submitted": len(signals)}
 
 
+@mcp.tool()
+def mind_spiral_recall(
+    owner_id: str,
+    text: str,
+    context: str | None = None,
+    direction: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    limit: int = 20,
+) -> list[dict]:
+    """記憶回溯 — 搜尋原話，回傳日期、情境、原文。
+
+    用法：「我什麼時候講過定價？」「我在開會時說過什麼關於 AI 的話？」
+    """
+    from engine.explorer import recall
+    return recall(owner_id=owner_id, text=text, context=context, direction=direction,
+                  date_from=date_from, date_to=date_to, limit=limit, config=_config)
+
+
+@mcp.tool()
+def mind_spiral_explore(owner_id: str, topic: str, depth: str = "full") -> dict:
+    """思維展開 — 從主題串連五層資料（信念、推理、框架、張力、原話）。
+
+    depth: lite（只看信念）| full（五層全展開）
+    """
+    from engine.explorer import explore
+    return explore(owner_id=owner_id, topic=topic, depth=depth, config=_config)
+
+
+@mcp.tool()
+def mind_spiral_evolution(owner_id: str, topic: str) -> dict:
+    """演變追蹤 — 某主題的信念 strength 變化 + 推理風格演變。"""
+    from engine.explorer import evolution
+    return evolution(owner_id=owner_id, topic=topic, config=_config)
+
+
+@mcp.tool()
+def mind_spiral_blindspots(owner_id: str) -> dict:
+    """盲區偵測 — 說做不一致、思維慣性、只輸入沒輸出等。"""
+    from engine.explorer import blindspots
+    return blindspots(owner_id=owner_id, config=_config)
+
+
+@mcp.tool()
+def mind_spiral_connections(owner_id: str, topic_a: str, topic_b: str) -> dict:
+    """關係圖譜 — 找兩個主題之間的隱性連結（共用信念、推理、框架、張力）。"""
+    from engine.explorer import connections
+    return connections(owner_id=owner_id, topic_a=topic_a, topic_b=topic_b, config=_config)
+
+
+@mcp.tool()
+def mind_spiral_simulate(owner_id: str, scenario: str, context: str | None = None) -> dict:
+    """模擬預測 — 假設情境下這個人會怎麼反應、推理、決策。"""
+    from engine.explorer import simulate
+    return simulate(owner_id=owner_id, scenario=scenario, context=context, config=_config)
+
+
 if __name__ == "__main__":
     mcp.run()

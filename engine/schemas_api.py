@@ -52,6 +52,39 @@ class IngestRequest(BaseModel):
     signals: list[SignalInput]
 
 
+class RecallRequest(BaseModel):
+    owner_id: str
+    text: str
+    context: str | None = None
+    direction: Literal["input", "output"] | None = None
+    date_from: str | None = None
+    date_to: str | None = None
+    limit: int = 20
+
+
+class ExploreRequest(BaseModel):
+    owner_id: str
+    topic: str
+    depth: Literal["lite", "full"] = "full"
+
+
+class EvolutionRequest(BaseModel):
+    owner_id: str
+    topic: str
+
+
+class ConnectionsRequest(BaseModel):
+    owner_id: str
+    topic_a: str
+    topic_b: str
+
+
+class SimulateRequest(BaseModel):
+    owner_id: str
+    scenario: str
+    context: str | None = None
+
+
 # ─── Response Models ───
 
 
