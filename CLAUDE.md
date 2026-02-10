@@ -11,7 +11,7 @@ context: shifu-context/projects/mind-spiral.md
 
 使用 mind-spiral skill 時：
 - 只輸出最終內容，不暴露組裝過程（不提及 convictions、matched_frame、traces 等內部結構）
-- 短影音腳本預設 60-90 秒，除非用戶另外指定
+- 短影音腳本預設 60-90 秒，不加秒數標註，除非用戶另外指定
 
 ## 專案目標
 
