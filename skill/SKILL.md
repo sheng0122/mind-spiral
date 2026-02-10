@@ -99,7 +99,6 @@ Headers: Authorization: Bearer $MIND_SPIRAL_OWNER_TOKEN
 需要更多指引時，按需讀取：
 
 - [references/context-assembly.md](references/context-assembly.md) — 用 /context 原料組裝回應的六步框架
-- [references/joey-profile.md](references/joey-profile.md) — Joey 的思維模式、回應原則、寫作風格
 
 ## 注意事項
 
