@@ -34,6 +34,8 @@ curl -X POST http://localhost:8000/ask \
   -d '{"owner_id":"joey","text":"定價怎麼看？"}'
 ```
 
+### 基礎 Endpoints
+
 | Endpoint | Method | 認證 | 說明 |
 |----------|--------|------|------|
 | `/health` | GET | 不需 | 版本 + uptime + ChromaDB 狀態 |
@@ -43,7 +45,67 @@ curl -X POST http://localhost:8000/ask \
 | `/generate` | POST | 任何角色 | 內容產出（article/post/script/decision） |
 | `/ingest` | POST | owner | 寫入 signals |
 
-認證：`Authorization: Bearer <token>`，環境變數 `MIND_SPIRAL_OWNER_TOKEN` / `MIND_SPIRAL_AGENT_TOKENS` / `MIND_SPIRAL_VIEWER_TOKENS`。
+### 探索 Endpoints（六種查詢模式）
+
+| Endpoint | Method | 說明 | 用途 |
+|----------|--------|------|------|
+| `/recall` | POST | 記憶回溯 | 「我什麼時候講過定價？」搜尋原話 + 時間/情境過濾 |
+| `/explore` | POST | 思維展開 | 「把我對定價的想法全部攤開」從主題串連五層資料成樹狀結構 |
+| `/evolution` | POST | 演變追蹤 | 「我對 AI 的看法這半年怎麼變的？」信念 strength 曲線 + 推理風格演變 |
+| `/blindspots` | GET | 盲區偵測 | 說做不一致、只輸出沒輸入、思維慣性、矛盾張力 |
+| `/connections` | POST | 關係圖譜 | 「定價跟個人品牌在我腦中怎麼連？」找兩主題間的隱性連結 |
+| `/simulate` | POST | 模擬預測 | 「如果有人提議砍價，我會怎麼反應？」預測反應路徑 + 盲區提醒 |
+
+#### 使用範例
+
+```bash
+# 記憶回溯：我什麼時候講過定價？
+curl -X POST http://localhost:8000/recall \
+  -H "Content-Type: application/json" \
+  -d '{"owner_id":"joey","text":"定價","limit":5}'
+
+# 思維展開：攤開我對短影音的完整想法
+curl -X POST http://localhost:8000/explore \
+  -H "Content-Type: application/json" \
+  -d '{"owner_id":"joey","topic":"短影音","depth":"full"}'
+
+# 演變追蹤：我對 AI 的看法怎麼變的？
+curl -X POST http://localhost:8000/evolution \
+  -H "Content-Type: application/json" \
+  -d '{"owner_id":"joey","topic":"AI"}'
+
+# 盲區偵測
+curl "http://localhost:8000/blindspots?owner_id=joey"
+
+# 關係圖譜：定價跟個人品牌怎麼連？
+curl -X POST http://localhost:8000/connections \
+  -H "Content-Type: application/json" \
+  -d '{"owner_id":"joey","topic_a":"定價","topic_b":"個人品牌"}'
+
+# 模擬預測：合作夥伴提議砍價，我會怎麼反應？
+curl -X POST http://localhost:8000/simulate \
+  -H "Content-Type: application/json" \
+  -d '{"owner_id":"joey","scenario":"合作夥伴提議把課程定價砍半來衝量","context":"team_meeting"}'
+```
+
+### 認證
+
+`Authorization: Bearer <token>`，環境變數 `MIND_SPIRAL_OWNER_TOKEN` / `MIND_SPIRAL_AGENT_TOKENS` / `MIND_SPIRAL_VIEWER_TOKENS`。
+
+### MCP Server（Claude Desktop 整合）
+
+```json
+{
+  "mcpServers": {
+    "mind-spiral": {
+      "command": "uv",
+      "args": ["--directory", "/path/to/18-mind-spiral", "run", "python", "-m", "engine.mcp_server"]
+    }
+  }
+}
+```
+
+提供 11 個 tools：ask, query, generate, stats, ingest, recall, explore, evolution, blindspots, connections, simulate。
 
 ## 文件
 

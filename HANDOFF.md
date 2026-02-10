@@ -329,8 +329,10 @@ uv run python migrate_atoms.py --atoms /path/to/atoms.jsonl --owner joey
 - `query_engine.py`：query/generate 最終生成從 Opus 降為 Sonnet（五層 context 已精準，不需 Opus 推理）
 - daily 從**跑不完** → **1 分鐘**，ask 從 ~40s → ~23s
 
-### Phase 2.5: FastAPI API Server（P0）
-- `engine/api.py`：6 個 endpoint — `/health` `/stats` `/ask` `/query` `/generate` `/ingest`
+### Phase 2.5: FastAPI API Server（P0）+ 六種查詢模式
+- `engine/api.py`：12 個 endpoint — 基礎 6 個 + 探索 6 個（recall/explore/evolution/blindspots/connections/simulate）
+- `engine/explorer.py`：六種查詢模式核心邏輯（記憶回溯、思維展開、演變追蹤、盲區偵測、關係圖譜、模擬預測）
+- `engine/mcp_server.py`：MCP Server，11 個 tools，Claude Desktop 可直接呼叫
 - `engine/auth.py`：Bearer token 認證，從環境變數讀 `MIND_SPIRAL_OWNER_TOKEN` / `MIND_SPIRAL_AGENT_TOKENS` / `MIND_SPIRAL_VIEWER_TOKENS`
 - `engine/schemas_api.py`：Request/Response Pydantic models（AskRequest, QueryRequest, GenerateRequest, IngestRequest, APIResponse）
 - `pyproject.toml`：加 `fastapi>=0.115` + `uvicorn[standard]>=0.32`

@@ -85,9 +85,11 @@ Joey 是 Mind Spiral 的第一個使用者。16 的 `process_*.py` 負責把 Joe
 │   ├── frame_clusterer.py       ← Layer 4 情境框架聚類
 │   ├── identity_scanner.py      ← Layer 5 身份核心掃描
 │   ├── query_engine.py          ← 五層感知 RAG + Generation Mode + ask 統一入口
-│   ├── api.py                   ← FastAPI API Server（Phase 2.5）
+│   ├── api.py                   ← FastAPI API Server（Phase 2.5，12 endpoints）
 │   ├── auth.py                  ← Bearer token 認證（四種角色）
-│   └── schemas_api.py           ← API Request/Response Pydantic models
+│   ├── schemas_api.py           ← API Request/Response Pydantic models
+│   ├── explorer.py              ← 六種查詢模式（recall/explore/evolution/blindspots/connections/simulate）
+│   └── mcp_server.py            ← MCP Server（11 tools，Claude Desktop 整合）
 ├── browser-ext/                 ← Chrome 擴充套件（Phase 2）
 ├── line-bot/                    ← LINE Bot（主動觸碰出口）
 ├── config/

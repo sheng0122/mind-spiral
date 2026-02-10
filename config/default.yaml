@@ -8,6 +8,7 @@ engine:
   conviction:
     min_resonance_count: 2            # 至少幾種共鳴才建立新 conviction
     similarity_threshold: 0.55        # 語意相似度門檻（0.75 太嚴致 82% singleton）
+    match_threshold: 0.85             # 新 conviction 比對門檻（防重複）
     strength_decay_days: 90           # N 天沒出現開始衰減
     identity_coverage_threshold: 0.5  # 覆蓋率超過此值升級為 identity（半數以上 frame）
 

@@ -554,6 +554,278 @@ Mind Spiral 的核心假設是「從真實行為中偵測信念」。不同來�
   → 你的內容可能開始觸及新族群
 ```
 
+### API Request / Response Schema
+
+所有 endpoint 共用以下結構：
+
+#### Request 共用欄位
+
+```json
+{
+  "owner_id": "joey",
+  "caller_id": "alice",
+  "caller_role": "viewer",
+  "token": "Bearer <token>"
+}
+```
+
+#### POST /ask（統一入口）
+
+```json
+// Request
+{
+  "owner_id": "joey",
+  "text": "定價怎麼看？",
+  "mode": "auto",
+  "context": {
+    "source_agent": "openclaw-team",
+    "session_id": "abc123"
+  }
+}
+// mode: "auto"（自動判斷）| "query"（回答問題）| "generate"（生成內容）
+```
+
+#### POST /generate
+
+```json
+// Request
+{
+  "owner_id": "joey",
+  "text": "寫一篇關於定價策略的短貼文",
+  "output_type": "post",
+  "constraints": {
+    "max_length": 300,
+    "tone": "casual"
+  }
+}
+// output_type: "article" | "post" | "script" | "decision"
+```
+
+#### POST /ingest（僅 Owner）
+
+```json
+// Request
+{
+  "owner_id": "joey",
+  "signals": [
+    {
+      "content": "今天和客戶討論了價值定價...",
+      "source": "meeting",
+      "direction": "output",
+      "modality": "speech"
+    }
+  ]
+}
+```
+
+#### Response Envelope（所有查詢/生成 endpoint 共用）
+
+```json
+{
+  "status": "ok",
+  "data": {
+    "answer": "基於客戶感知價值定價，不是成本加成...",
+    "mode": "query",
+    "confidence": 0.92,
+    "frame": {
+      "id": "frame-2",
+      "name": "價值驅動的務實行動框架",
+      "matching_method": "embedding"
+    },
+    "activated_convictions": [
+      {
+        "id": "c-342",
+        "content": "定價應該基於客戶感知價值",
+        "strength": 0.82,
+        "direction": "both",
+        "visibility": "public"
+      }
+    ],
+    "reasoning_style": "first_principles",
+    "response_voice": "direct",
+    "citations": [
+      {
+        "type": "trace",
+        "id": "t-128",
+        "snippet": "在 ShiFu 內部討論時提到..."
+      }
+    ]
+  },
+  "meta": {
+    "processing_time_ms": 1250,
+    "model_used": "claude-sonnet-4-5",
+    "layers_activated": [1, 2, 3, 4]
+  }
+}
+```
+
+#### Error Response
+
+```json
+{
+  "status": "error",
+  "error": {
+    "code": "AUTH_FAILED",
+    "message": "Invalid or expired token"
+  }
+}
+```
+
+#### GET /stats
+
+```json
+// Response
+{
+  "status": "ok",
+  "data": {
+    "owner_id": "joey",
+    "signals": 2737,
+    "convictions": { "total": 369, "core": 15, "established": 20, "developing": 269, "emerging": 65 },
+    "traces": 254,
+    "frames": 5,
+    "identity_cores": 2,
+    "last_ingested": "2026-02-09T08:30:00Z",
+    "last_detection": "2026-02-09T09:00:00Z"
+  }
+}
+```
+
+#### GET /health
+
+```json
+{
+  "status": "ok",
+  "version": "2.5.0",
+  "uptime_seconds": 86400,
+  "chromadb": "connected",
+  "llm_backend": "claude_code"
+}
+```
+
+### 部署規格
+
+#### VPS 資源需求
+
+| 元件 | RAM | CPU | Disk | 說明 |
+|------|-----|-----|------|------|
+| FastAPI + uvicorn | ~100 MB | 極低 | — | HTTP server |
+| ChromaDB | ~200-500 MB | 低 | ~50 MB/千筆 signal | 向量索引常駐 |
+| sentence-transformers | ~500 MB | 中（首次載入） | ~500 MB（模型） | embedding 模型 |
+| Python runtime + 依賴 | ~200 MB | — | ~500 MB | .venv |
+| **總計** | **~1-1.5 GB** | **1 核夠用** | **~2 GB** | |
+
+#### 建議 VPS 規格
+
+| 部署方式 | RAM | 費用 | 說明 |
+|---------|-----|------|------|
+| **Mind Spiral 獨立 VPS** | 2 GB | US$12/月 | 夠用，專注跑引擎 |
+| Mind Spiral + OpenClaw 同機 | 4-8 GB | US$24-48/月 | 共用但互相影響 |
+
+#### Dockerfile
+
+```dockerfile
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# 安裝 uv
+RUN pip install uv
+
+# 複製依賴定義
+COPY pyproject.toml uv.lock ./
+
+# 安裝依賴
+RUN uv sync --frozen --no-dev
+
+# 複製程式碼
+COPY engine/ engine/
+COPY config/ config/
+COPY schemas/ schemas/
+
+# 資料目錄掛載點（PVC）
+VOLUME /app/data
+
+# 預下載 embedding 模型（避免冷啟動延遲）
+RUN uv run python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
+
+EXPOSE 8000
+
+CMD ["uv", "run", "uvicorn", "engine.api:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+#### 環境變數（.env.example）
+
+```bash
+# === 必要 ===
+MIND_SPIRAL_OWNER_TOKEN=ms-owner-xxxxxxxx       # Owner（Joey）的 API token
+MIND_SPIRAL_DATA_DIR=/app/data                    # 資料目錄
+
+# === LLM 後端（三選一）===
+MIND_SPIRAL_LLM_BACKEND=claude_code               # claude_code | cloud | local
+# cloud 模式需要：
+# ANTHROPIC_API_KEY=sk-ant-...
+# CF_AIG_ENDPOINT=https://gateway.ai.cloudflare.com/v1/...
+# local 模式需要：
+# OLLAMA_BASE_URL=http://localhost:11434
+
+# === 選填 ===
+MIND_SPIRAL_PORT=8000                             # API server port
+MIND_SPIRAL_LOG_LEVEL=info                        # debug | info | warning | error
+MIND_SPIRAL_CORS_ORIGINS=https://joeyclaw.zeabur.app  # 允許的 CORS origins（逗號分隔）
+
+# === Token（多角色）===
+MIND_SPIRAL_AGENT_TOKENS=ms-agent-xxx,ms-agent-yyy   # Agent tokens（逗號分隔）
+MIND_SPIRAL_VIEWER_TOKENS=ms-viewer-xxx               # Viewer tokens
+MIND_SPIRAL_SYSTEM_API_KEY=ms-sys-xxxxxxxx            # System API key
+```
+
+#### K3s 部署（Zeabur 或手動）
+
+```yaml
+# mind-spiral-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mind-spiral
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+      - name: mind-spiral
+        image: mind-spiral:latest
+        ports:
+        - containerPort: 8000
+        envFrom:
+        - secretRef:
+            name: mind-spiral-secrets
+        volumeMounts:
+        - name: data
+          mountPath: /app/data
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1.5Gi"
+            cpu: "1"
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: mind-spiral-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mind-spiral
+spec:
+  ports:
+  - port: 8000
+    targetPort: 8000
+  selector:
+    app: mind-spiral
+```
+
 ### 部署架構
 
 ```
@@ -606,15 +878,19 @@ OpenClaw 透過 **Skill** 或 **Tool** 呼叫 Mind Spiral API：
 
 ### 開發優先級
 
-| 項目 | 優先級 | 說明 |
-|------|--------|------|
-| FastAPI 薄包裝（/ask /query /generate） | P0 | 把現有 CLI 包成 HTTP API |
-| 認證機制（owner_token / caller_token） | P0 | 區分四種角色 |
-| Demand log 側錄 | P1 | 每次非 Owner 查詢自動記錄 |
-| Demand × Conviction 落差分析 | P1 | 定期報告 |
-| OpenClaw Skill 開發 | P1 | 接上 OpenClaw |
-| 代理人確認機制 | P2 | Agent 產出的回寫流程 |
-| Owner 對話回寫管線 | P2 | Joey 本人在 OpenClaw 的對話轉 signals |
+| 項目 | 優先級 | 說明 | 預估 |
+|------|--------|------|------|
+| FastAPI Server（engine/api.py） | P0 | 6 個 endpoint，包裝現有 CLI 函數 | ~300 行 |
+| Request/Response Schema | P0 | Pydantic 驗證模型 + Response Envelope | ~150 行 |
+| 認證機制（engine/auth.py） | P0 | 四種 role token 驗證 + middleware | ~150 行 |
+| Dockerfile + .env.example | P0 | 容器化 + 環境變數文件 | ~80 行 |
+| 存取控制（engine/access_control.py） | P1 | self/team/public visibility 過濾 | ~400 行 |
+| CORS + middleware | P1 | 跨域設定 + request logging | ~50 行 |
+| Demand log 側錄 | P1 | 非 Owner 查詢自動記錄 demand.jsonl | ~150 行 |
+| Demand × Conviction 落差分析 | P1 | /demand/stats endpoint | ~200 行 |
+| OpenClaw Skill 開發 | P1 | 接上 OpenClaw，呼叫 /ask | 待定 |
+| 代理人確認機制 | P2 | /agent/confirm endpoint + 回寫流程 | ~150 行 |
+| Owner 對話回寫管線 | P2 | Joey 在 OpenClaw 的對話轉 signals | 待定 |
 
 ---
 
@@ -622,14 +898,20 @@ OpenClaw 透過 **Skill** 或 **Tool** 呼叫 Mind Spiral API：
 
 | 項目 | 決策 |
 |------|------|
-| 主要語言 | Python |
+| 主要語言 | Python 3.12+ |
+| 套件管理 | uv |
+| HTTP 框架 | FastAPI + uvicorn |
 | 引擎形態 | Python package（可 pip install） |
-| LLM | OpenAI-compatible API（Ollama / CF Gateway） |
+| LLM | OpenAI-compatible API（Ollama / CF Gateway / claude_code） |
 | 資料格式 | JSONL + JSON，JSON Schema draft-07 驗證 |
 | Vector DB | ChromaDB（本地）/ Vectorize（雲端） |
+| Embedding 模型 | sentence-transformers（all-MiniLM-L6-v2，~500MB） |
 | 訊息出口 | LINE Messaging API |
 | 瀏覽器插件 | Chrome Extension Manifest V3 |
 | 資料隔離 | 檔案系統目錄（本地）/ owner_id 欄位（雲端） |
+| 容器化 | Docker（python:3.12-slim），資料目錄掛 PVC |
+| 部署目標 | Akamai VPS（K3s）或獨立 VPS |
+| 最低資源 | 1 核 / 2GB RAM / 2GB Disk |
 
 ---
 
