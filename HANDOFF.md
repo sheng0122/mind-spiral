@@ -339,15 +339,18 @@ uv run python migrate_atoms.py --atoms /path/to/atoms.jsonl --owner joey
 - `engine/signal_store.py`：embedding model 改為全域 singleton（啟動載入，避免每次請求 ~16s）
 - `engine/conviction_deduper.py`：conviction 語義去重（cosine + LLM 確認）
 - `engine/query_engine.py`：新增 `context()` 原料包函數 + generate prompt 原則導向重構 + writing_style 載入
-- `Dockerfile` + `docker-compose.yml`：Docker 部署支援
-- `skill/SKILL.md`：13 個 endpoint 完整說明 + 11 種使用情境
+- `Dockerfile`：multi-stage build（builder + runtime 分離，減少 build cache 堆積）
+- `docker-compose.yml`：Docker 部署支援
+- `skill/SKILL.md`：漸進式揭露重構（精簡路由表 + references 按需載入）
 - `pyproject.toml`：加 `anthropic>=0.40`
 
 ### VPS 部署
-- 地址：`http://172.104.53.227:8000`（Akamai, Singapore, 2核 3.8GB）
+- 地址：`http://joey.shifu-ai.org:8000`（Akamai, Singapore, 2核 3.8GB）
+- DNS：`joey.shifu-ai.org` A record → `172.104.53.227`（Cloudflare, DNS only）
 - Docker compose，data/ 掛載 volume
 - LLM backend: cloud（Anthropic API），embedding: google/embeddinggemma-300m
 - 13 個 endpoint 全部驗證通過
+- Cron job：每週日 04:00 自動清理 Docker build cache
 
 ### /context 原料包架構
 ```
@@ -368,10 +371,36 @@ uv run python migrate_atoms.py --atoms /path/to/atoms.jsonl --owner joey
 ### 新檔案
 - `data/{owner}/strength_snapshots.jsonl` — 每次 detect 後自動產生
 - `data/{owner}/writing_style.md` — per-owner 寫作風格原則，generate 和 context 自動載入
+- `skill/references/context-assembly.md` — /context 原料組裝六步框架（含多角度取材）
+
+### Skill 漸進式揭露重構
+- SKILL.md 從 361 行精簡為 ~110 行（路由表 + 常用 endpoint）
+- 詳細指引拆到 `references/context-assembly.md` 按需載入
+- 移除 `joey-profile.md`，風格由 `/context` 回傳的 `writing_style` 動態決定
+- 符合 [Agent Skills spec](https://agentskills.io/specification) 的 progressive disclosure 模式
+- 查詢 endpoint 不需 token，只有 `/ingest` 需要 owner token
+- BASE_URL 改用 domain：`joey.shifu-ai.org:8000`
+
+### Docker 磁碟優化
+- 問題：每次 rebuild 堆積 build cache，磁碟從 21% 飆到 100%（75G/79G）
+- Dockerfile 改 multi-stage build：builder stage 裝依賴 → runtime stage 只複製 .venv
+- VPS 加 cron job：每週日 04:00 `docker builder prune -af`
+- 效果：磁碟使用率從 100% 降到 30%
 
 ## Git log
 
 ```
+47a29c3 perf: Dockerfile multi-stage build + VPS 加 weekly Docker cleanup cron
+eeb0fc5 refactor: 移除 joey-profile.md，讓 /context 回傳的 writing_style 主導風格
+75df9e1 docs: 各 output_type 字數上調 + script 不加秒數標註
+374fc7a docs: 短影音腳本預設 60-90 秒
+1c19d3c docs: 多角度取材加入邏輯關聯性原則，避免硬接無關主題
+63d69af docs: context-assembly 加入多角度取材原則，避免重複素材
+0a16021 docs: Skill 組裝過程不暴露規則移至 CLAUDE.md
+8a27b51 docs: BASE_URL 改用 joey.shifu-ai.org domain
+6adbc40 docs: SKILL.md 認證說明更新 — 查詢 endpoint 不需 token
+356ef63 refactor: Skill 漸進式揭露重構 — SKILL.md 精簡 + references 按需載入
+e5556c4 docs: 更新 HANDOFF — VPS 部署完成 + /context 原料包 + 回應時間實測
 ac50239 docs: README + Skill 加上 /context 原料包 endpoint 說明
 d5b5654 feat: /context 原料包 endpoint + generate prompt 原則導向重構
 49d0b6b docs: README 補完 — CLI 指令、Docker 部署、MCP tools 說明、環境變數
