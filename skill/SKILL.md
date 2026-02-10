@@ -60,7 +60,7 @@ POST /generate
 {"owner_id": "joey", "text": "寫一篇關於行動力的文章", "output_type": "article"}
 ```
 
-`output_type`：`article`（800-1500字）| `post`（200-400字）| `script`（200-400字，含秒數）| `decision`（300-600字）
+`output_type`：`article`（800-1500字）| `post`（200-400字）| `script`（60-90秒，含秒數標註）| `decision`（300-600字）
 
 ### /query — 五層查詢
 
