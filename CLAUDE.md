@@ -7,6 +7,10 @@ context: shifu-context/projects/mind-spiral.md
 
 # Mind Spiral — 人類思維模型引擎
 
+## Skill 使用規則
+
+使用 mind-spiral skill 時，只輸出最終內容，不暴露組裝過程（不提及 convictions、matched_frame、traces 等內部結構）。
+
 ## 專案目標
 
 被動觀察一個人的日常行為，自動建構五層思維模型（Signal → Conviction → Reasoning Trace → Context Frame → Identity Core），讓 AI 數位分身能用這個人的方式思考、推理、回應。

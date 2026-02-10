@@ -64,7 +64,6 @@ Identity 是護欄，不是主題。回應寫完後檢查：
 ## Step 6：用 `writing_style` 調整表達
 
 用回傳的 writing_style 原則潤飾語言。如需更多 Joey 的風格細節，參考 [joey-profile.md](joey-profile.md)。
-
 ## 範例
 
 用戶問「Joey 怎麼看 AI 課程定價？」
