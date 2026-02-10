@@ -1,4 +1,4 @@
-"""LLM 抽象層 — 支援 local Ollama、cloud gateway、claude_code（Agent SDK）"""
+"""LLM 抽象層 — 支援 local Ollama、cloud (Anthropic API)、claude_code（Agent SDK）"""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 
 
 _client: OpenAI | None = None
+_anthropic_client = None
 
 
 def _get_client(config: dict | None = None) -> OpenAI:
@@ -33,6 +34,45 @@ def _get_client(config: dict | None = None) -> OpenAI:
         _client = _OpenAI(base_url=llm_cfg["gateway_url"], api_key=api_key)
 
     return _client
+
+
+def _get_anthropic_client():
+    global _anthropic_client
+    if _anthropic_client is not None:
+        return _anthropic_client
+
+    import anthropic
+    _anthropic_client = anthropic.Anthropic(
+        api_key=os.environ.get("ANTHROPIC_API_KEY", ""),
+    )
+    return _anthropic_client
+
+
+def _call_anthropic(
+    prompt: str,
+    system: str | None = None,
+    config: dict | None = None,
+    tier: str = "heavy",
+) -> str:
+    """直接呼叫 Anthropic API。"""
+    cfg = config or load_config()
+    cloud_cfg = cfg.get("llm", {}).get("cloud", {})
+
+    # 三檔制 model mapping
+    model_map = {
+        "heavy": cloud_cfg.get("model_heavy", "claude-sonnet-4-5-20250929"),
+        "medium": cloud_cfg.get("model_medium", "claude-sonnet-4-5-20250929"),
+        "light": cloud_cfg.get("model_light", "claude-haiku-4-5-20251001"),
+    }
+    model = model_map.get(tier, model_map["heavy"])
+
+    client = _get_anthropic_client()
+    kwargs = {"model": model, "max_tokens": 4096, "messages": [{"role": "user", "content": prompt}]}
+    if system:
+        kwargs["system"] = system
+
+    resp = client.messages.create(**kwargs)
+    return resp.content[0].text if resp.content else ""
 
 
 # ─── Claude Code backend (Agent SDK) ───
@@ -144,7 +184,10 @@ def call_llm(
         else:
             return loop.run_until_complete(_claude_code_query(prompt, system, cfg, tier=tier))
 
-    # OpenAI-compatible backends (local / cloud) — tier 不影響（本地模型只有一個）
+    if backend == "cloud":
+        return _call_anthropic(prompt, system, cfg, tier=tier)
+
+    # OpenAI-compatible backends (local) — tier 不影響（本地模型只有一個）
     client = _get_client(cfg)
     model = cfg["llm"][backend]["model"]
 
@@ -183,5 +226,5 @@ def batch_llm(
                 _claude_code_batch(prompts, system, cfg, max_concurrent, tier=tier)
             )
 
-    # OpenAI-compatible backends: 循序處理
+    # cloud / local backends: 循序處理
     return [call_llm(p, system=system, config=cfg, tier=tier) for p in prompts]

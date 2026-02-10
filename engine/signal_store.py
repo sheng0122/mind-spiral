@@ -12,6 +12,21 @@ from engine.config import get_owner_dir
 from engine.models import Signal
 
 
+_global_embedder = None
+
+
+def _get_global_embedder(config: dict):
+    """全域 singleton embedder，避免每次請求重新載入模型（~16s）。"""
+    global _global_embedder
+    if _global_embedder is None:
+        from sentence_transformers import SentenceTransformer
+        model_name = config.get("llm", {}).get("local", {}).get("embedding_model", "BAAI/bge-m3")
+        if "/" not in model_name:
+            model_name = f"BAAI/{model_name}"
+        _global_embedder = SentenceTransformer(model_name)
+    return _global_embedder
+
+
 class SignalStore:
     def __init__(self, config: dict, owner_id: str):
         self.config = config
@@ -27,18 +42,8 @@ class SignalStore:
             metadata={"hnsw:space": "cosine"},
         )
 
-        # Embedding model（lazy load）
-        self._embedder = None
-
     def _get_embedder(self):
-        if self._embedder is None:
-            from sentence_transformers import SentenceTransformer
-            model_name = self.config.get("llm", {}).get("local", {}).get("embedding_model", "BAAI/bge-m3")
-            # 如果只寫 bge-m3，補完整名稱
-            if "/" not in model_name:
-                model_name = f"BAAI/{model_name}"
-            self._embedder = SentenceTransformer(model_name)
-        return self._embedder
+        return _get_global_embedder(self.config)
 
     def compute_embedding(self, text: str) -> list[float]:
         embedder = self._get_embedder()
