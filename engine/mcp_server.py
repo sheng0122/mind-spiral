@@ -115,6 +115,27 @@ def mind_spiral_ingest(
 
 
 @mcp.tool()
+def mind_spiral_context(
+    owner_id: str,
+    question: str,
+    caller_id: str | None = None,
+    conviction_limit: int = 7,
+    trace_limit: int = 8,
+) -> dict:
+    """原料包模式 — 只做五層檢索，不呼叫 LLM，回傳結構化的思維 context。
+
+    回傳信念、推理軌跡、框架、身份約束、原話佐證、寫作風格。
+    供外部 Agent 用自己的 LLM 搭配這些原料產出內容。
+
+    用法：當你有自己的 LLM 能力，只需要「這個人的思維原料」時用此 tool。
+    """
+    from engine.query_engine import context
+    return context(owner_id=owner_id, question=question, caller=caller_id,
+                   config=_config, conviction_limit=conviction_limit,
+                   trace_limit=trace_limit)
+
+
+@mcp.tool()
 def mind_spiral_recall(
     owner_id: str,
     text: str,

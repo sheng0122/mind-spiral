@@ -544,35 +544,65 @@ def _build_response_prompt(ctx: QueryContext) -> str:
 - 可以引用自己過去的推理邏輯或原話作為佐證"""
 
 
-def _build_generation_prompt(ctx: QueryContext, output_type: str, extra_instructions: str) -> str:
+def _load_writing_style(owner_id: str, config: dict) -> str:
+    """載入 owner 的寫作風格檔案（data/{owner}/writing_style.md）。"""
+    from engine.config import get_owner_dir
+    style_path = get_owner_dir(config, owner_id) / "writing_style.md"
+    if style_path.exists():
+        return style_path.read_text(encoding="utf-8").strip()
+    return ""
+
+
+def _build_generation_prompt(ctx: QueryContext, output_type: str, extra_instructions: str,
+                             owner_id: str = "", config: dict | None = None) -> str:
     """組裝 generation mode 的 prompt。"""
     p = _build_common_context(ctx)
 
+    # 原則導向的類型指引（不以字數為主）
     type_guides = {
         "article": (
-            "寫一篇完整文章。結構要有吸引人的開頭（用故事、問題或反直覺觀點切入）、"
-            "有邏輯的中段（用信念和推理軌跡展開論述，穿插個人經驗和具體案例）、"
-            "有力的結尾（回扣核心信念，給讀者明確行動方向）。"
-            "長度：800-1500 字。"
+            "寫一篇完整文章。\n"
+            "原則：\n"
+            "- 開頭用故事、提問或反直覺觀點切入，3 句內讓讀者想繼續看\n"
+            "- 中段用信念和推理軌跡展開論述，每個論點搭配具體案例或個人經驗\n"
+            "- 結尾回扣核心信念，給讀者一個可以馬上做的行動\n"
+            "- 段落之間要有邏輯遞進，不是平行列舉\n"
+            "- 抽象觀點必須用具體數字、案例或類比落地"
         ),
         "post": (
-            "寫一則社群貼文。開頭要有鉤子（一句話抓住注意力），"
-            "中間用短句、分段，保持節奏感，結尾帶 call to action 或引發討論。"
-            "長度：200-400 字。"
+            "寫一則社群貼文。\n"
+            "原則：\n"
+            "- 第一句就是鉤子：提問、反常識、或一句話故事\n"
+            "- 用短句、分段，保持閱讀節奏感\n"
+            "- 一篇只講一個核心觀點，不要貪心塞太多\n"
+            "- 結尾帶互動性（提問、邀請留言、或給一個可執行的小行動）\n"
+            "- 語氣像在跟朋友聊天，但每句都有資訊密度"
         ),
         "decision": (
-            "針對這個決策情境，用這個人的推理方式做分析。"
-            "列出核心考量、用信念和推理風格權衡選項，給出明確建議和下一步行動。"
-            "長度：300-600 字。"
+            "針對這個決策情境做分析。\n"
+            "原則：\n"
+            "- 先釐清決策的核心矛盾是什麼\n"
+            "- 用信念和推理風格權衡各選項的利弊\n"
+            "- 考慮短期和長期的不同影響\n"
+            "- 給出明確建議和具體的下一步行動\n"
+            "- 誠實指出自己可能忽略的面向"
         ),
         "script": (
-            "寫一段短影音腳本。開頭 3 秒要有吸引力的 hook，"
-            "中間用口語化表達，節奏快，每段一個重點，"
-            "結尾帶 CTA（按讚、留言、追蹤）。"
-            "長度：200-400 字，標註分段和預估秒數。"
+            "寫一段短影音腳本。\n"
+            "原則：\n"
+            "- 前 3 秒是 hook：用反差、提問或爭議性開場，讓人停下來看\n"
+            "- 全程口語化，像在對朋友說話\n"
+            "- 每段只講一個重點，節奏快，不拖泥帶水\n"
+            "- 資訊密度要高：每一句都有價值，刪掉廢話\n"
+            "- 結尾帶 CTA（按讚、留言、追蹤），但要自然不生硬\n"
+            "- 標註分段和預估秒數"
         ),
     }
     format_guide = type_guides.get(output_type, type_guides["article"])
+
+    # 載入 owner 專屬寫作風格
+    writing_style = _load_writing_style(owner_id, config) if owner_id and config else ""
+    style_block = f"\n這個人的寫作風格特徵：\n{writing_style}" if writing_style else ""
 
     extra_block = f"\n額外要求：{extra_instructions}" if extra_instructions else ""
 
@@ -590,19 +620,21 @@ def _build_generation_prompt(ctx: QueryContext, output_type: str, extra_instruct
 {p["traces_text"]}
 
 {p["raw_signals_text"]}
-{p["confidence_note"]}{p["temporal_note"]}
+{p["confidence_note"]}{p["temporal_note"]}{style_block}
+
 任務：{ctx.question}
 
-輸出格式：{format_guide}
+{format_guide}
 {extra_block}
 
-要求：
+核心要求：
 - 用第一人稱「我」撰寫
 - 內容方向由上述信念和推理軌跡主導，不要總是收束到同一個結論
 - 身份核心是底線護欄，不是每篇都要提到的主旨
 - 語氣要符合情境框架的設定
 - 要有這個人的個人特色：用詞習慣、常用句式、思考方式
-- 論點要具體，用推理軌跡中的邏輯、案例或原話佐證，不要空泛"""
+- 論點要具體，用推理軌跡中的邏輯、案例或原話佐證，不要空泛
+- 寧可寫得精煉有力，也不要為了湊字數而注水"""
 
 
 # ─── 主入口 ───
@@ -770,7 +802,8 @@ def generate(
                                     conviction_limit=7, trace_limit=8)
 
     # Step 5: Generation（五層 context 已精準，Sonnet 足夠）
-    prompt = _build_generation_prompt(ctx, output_type, extra_instructions)
+    prompt = _build_generation_prompt(ctx, output_type, extra_instructions,
+                                     owner_id=owner_id, config=cfg)
     ctx.response = call_llm(prompt, config=cfg, tier="medium")
 
     return {
@@ -781,4 +814,66 @@ def generate(
         "activated_convictions": [c.statement for c in ctx.activated_convictions],
         "relevant_traces": len(ctx.relevant_traces),
         "identity_constraints": [i.core_belief for i in ctx.identity_constraints],
+    }
+
+
+def context(
+    owner_id: str,
+    question: str,
+    caller: str | None = None,
+    config: dict | None = None,
+    conviction_limit: int = 7,
+    trace_limit: int = 8,
+) -> dict:
+    """原料包模式 — 只做五層檢索，不呼叫 LLM，回傳結構化的思維 context。
+
+    供外部 Agent 用自己的 LLM 搭配原料包產出內容。
+    """
+    from engine.config import load_config
+    cfg = config or load_config()
+
+    ctx = _run_five_layer_pipeline(owner_id, question, caller, cfg,
+                                    conviction_limit=conviction_limit,
+                                    trace_limit=trace_limit)
+
+    # 載入寫作風格
+    writing_style = _load_writing_style(owner_id, cfg)
+
+    return {
+        "matched_frame": {
+            "name": ctx.matched_frame.name,
+            "description": ctx.matched_frame.description,
+            "reasoning_patterns": ctx.matched_frame.reasoning_patterns.model_dump() if ctx.matched_frame.reasoning_patterns else None,
+            "match_method": ctx.match_method,
+        } if ctx.matched_frame else None,
+        "activated_convictions": [
+            {
+                "statement": c.statement,
+                "strength": c.strength.score,
+                "level": c.strength.level,
+                "domains": c.domains,
+            }
+            for c in ctx.activated_convictions
+        ],
+        "reasoning_traces": [
+            {
+                "reasoning_steps": [{"action": s.action, "description": s.description} for s in t.reasoning_path.steps] if t.reasoning_path else [],
+                "reasoning_style": t.reasoning_path.style if t.reasoning_path else None,
+                "conclusion": t.conclusion.decision if t.conclusion else None,
+                "confidence": t.conclusion.confidence if t.conclusion else None,
+                "context_date": t.source.date if t.source else None,
+            }
+            for t in ctx.relevant_traces
+        ],
+        "identity_constraints": [
+            {
+                "core_belief": i.core_belief,
+                "non_negotiable": i.non_negotiable,
+            }
+            for i in ctx.identity_constraints
+        ],
+        "raw_signals": ctx.raw_signals,
+        "writing_style": writing_style,
+        "low_confidence": ctx.low_confidence,
+        "is_temporal": ctx.is_temporal,
     }

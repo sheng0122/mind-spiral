@@ -85,6 +85,14 @@ class SimulateRequest(BaseModel):
     context: str | None = None
 
 
+class ContextRequest(BaseModel):
+    owner_id: str
+    question: str
+    caller_id: str | None = None
+    conviction_limit: int = 7
+    trace_limit: int = 8
+
+
 # ─── Response Models ───
 
 

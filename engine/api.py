@@ -16,6 +16,7 @@ from engine.schemas_api import (
     APIResponse,
     AskRequest,
     ConnectionsRequest,
+    ContextRequest,
     ErrorDetail,
     ErrorResponse,
     EvolutionRequest,
@@ -170,6 +171,30 @@ async def generate_endpoint(
         output_type=req.output_type,
         caller=req.caller_id,
         config=_config,
+    )
+    return APIResponse(data=result).model_dump()
+
+
+@app.post("/context")
+async def context_endpoint(
+    req: ContextRequest,
+    role: Role = Depends(resolve_role),
+):
+    """原料包模式 — 只做五層檢索，不呼叫 LLM。
+
+    回傳結構化的思維 context（信念、推理、框架、身份、原話、寫作風格），
+    供外部 Agent 用自己的 LLM 搭配原料包產出內容。
+    """
+    from engine.query_engine import context
+
+    _check_owner_exists(req.owner_id)
+    result = context(
+        owner_id=req.owner_id,
+        question=req.question,
+        caller=req.caller_id,
+        config=_config,
+        conviction_limit=req.conviction_limit,
+        trace_limit=req.trace_limit,
     )
     return APIResponse(data=result).model_dump()
 
