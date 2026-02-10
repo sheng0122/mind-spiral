@@ -1,0 +1,14 @@
+services:
+  mind-spiral:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - LLM_BACKEND=cloud
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - MIND_SPIRAL_OWNER_TOKEN=${MIND_SPIRAL_OWNER_TOKEN}
+      - MIND_SPIRAL_DATA_DIR=/app/data
+      - HF_TOKEN=${HF_TOKEN}
+    restart: always

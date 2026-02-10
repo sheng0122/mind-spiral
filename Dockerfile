@@ -1,0 +1,19 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+# Copy project files
+COPY pyproject.toml uv.lock* ./
+COPY engine/ ./engine/
+COPY config/ ./config/
+COPY schemas/ ./schemas/
+
+# Install dependencies
+RUN uv sync --no-dev --frozen 2>/dev/null || uv sync --no-dev
+
+EXPOSE 8000
+
+CMD ["uv", "run", "uvicorn", "engine.api:app", "--host", "0.0.0.0", "--port", "8000"]

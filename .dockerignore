@@ -1,0 +1,9 @@
+.git
+__pycache__
+*.egg-info
+data
+.env*
+*.md
+tests
+browser-ext
+line-bot
