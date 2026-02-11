@@ -184,7 +184,12 @@ def _save_convictions(owner_dir: Path, convictions: list[Conviction]) -> None:
 
 def _compute_authority_weight(signals: list[Signal]) -> float:
     """根據 signals 的 authority 計算加權乘數。"""
-    weights = {"first_person": 1.0, "second_person": 0.8, "third_party": 0.6}
+    weights = {
+        "own_voice": 1.0,
+        "endorsed": 0.85,
+        "referenced": 0.7,
+        "received": 0.6,
+    }
     if not signals:
         return 1.0
     total = sum(weights.get(s.authority, 0.8) for s in signals)
@@ -207,7 +212,7 @@ def _compute_strength(
 
     規則：
     - 基礎分 = resonance_count * 0.15 + signal_count * 0.05
-    - authority 加權：first_person ×1.0, second_person ×0.8, third_party ×0.6
+    - authority 加權：own_voice ×1.0, endorsed ×0.85, referenced ×0.7, received ×0.6
     - cross-direction 門檻：只有 output 沒有 input 的 conviction，cap 在 developing（≤0.5）
     """
     score = min(1.0, (resonance_count * 0.15 + signal_count * 0.05))

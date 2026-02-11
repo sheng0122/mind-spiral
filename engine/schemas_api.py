@@ -33,15 +33,33 @@ class SignalInput(BaseModel):
     """簡化的 signal 輸入格式，對應 Signal model 的必要欄位。"""
     signal_id: str
     direction: Literal["input", "output"]
-    modality: str
-    authority: str | None = None
+    modality: Literal[
+        "spoken_spontaneous", "spoken_scripted", "spoken_interview",
+        "written_casual", "written_deliberate", "written_structured",
+        "highlighted", "consumed", "received", "decided", "acted",
+    ]
+    authority: Literal["own_voice", "endorsed", "referenced", "received"] | None = None
     text: str
-    content_type: str = "idea"
+    content_type: Literal[
+        "idea", "belief", "decision", "action", "framework", "story",
+        "quote", "question", "observation", "reaction", "instruction",
+        "hook_pattern", "narrative_pattern", "key_message",
+    ] = "idea"
     reasoning: str | None = None
-    confidence: str | None = None
-    emotion: str | None = None
+    confidence: Literal["strong_opinion", "exploring", "tentative", "quoting_others"] | None = None
+    emotion: Literal[
+        "focused", "excited", "frustrated", "reflective", "neutral",
+        "stressed", "playful", "passionate", "doubtful",
+    ] | None = None
     date: str
-    context: str = "other"
+    context: Literal[
+        "solo_thinking", "team_meeting", "one_on_one", "phone_call",
+        "brainstorm", "client_meeting", "presentation", "casual_chat",
+        "commute", "short_video", "social_post", "interview_guest",
+        "host_interview", "line_private", "line_group", "email",
+        "book_reading", "article_reading", "podcast_listening",
+        "course_learning", "other",
+    ] = "other"
     participants: list[str] | None = None
     source_file: str | None = None
     topics: list[str] | None = None

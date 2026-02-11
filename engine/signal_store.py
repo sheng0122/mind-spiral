@@ -145,18 +145,21 @@ class SignalStore:
         return self._load_signals_by_ids(ids)
 
     def _load_signals_by_ids(self, ids: list[str]) -> list[Signal]:
-        """從 JSONL 載入指定 ID 的 signals。"""
+        """從 JSONL 載入指定 ID 的 signals，並保留 ids 的原始排序。"""
         id_set = set(ids)
-        signals = []
+        signal_by_id: dict[str, Signal] = {}
         if not self.signals_path.exists():
-            return signals
+            return []
         with open(self.signals_path) as f:
             for line in f:
                 if line.strip():
                     obj = json.loads(line)
                     if obj.get("signal_id") in id_set:
-                        signals.append(Signal.model_validate(obj))
-        return signals
+                        sig = Signal.model_validate(obj)
+                        signal_by_id[sig.signal_id] = sig
+
+        ordered = [signal_by_id[sid] for sid in ids if sid in signal_by_id]
+        return ordered
 
     def load_all(self) -> list[Signal]:
         """載入所有 signals。"""

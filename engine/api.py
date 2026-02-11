@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import os
 import time
-from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from engine.auth import Role, require_authenticated, require_owner, resolve_role
+from engine.auth import Role, require_authenticated, require_owner
 from engine.config import get_owner_dir, load_config
 from engine.schemas_api import (
     APIResponse,
@@ -123,7 +122,7 @@ async def stats(owner_id: str):
 @app.post("/ask")
 async def ask_endpoint(
     req: AskRequest,
-    role: Role = Depends(resolve_role),
+    _role: Role = Depends(require_authenticated),
 ):
     """統一入口 — 自動判斷 query 或 generate。"""
     from engine.query_engine import ask
@@ -141,7 +140,7 @@ async def ask_endpoint(
 @app.post("/query")
 async def query_endpoint(
     req: QueryRequest,
-    role: Role = Depends(resolve_role),
+    _role: Role = Depends(require_authenticated),
 ):
     """五層感知查詢。"""
     from engine.query_engine import query
@@ -159,7 +158,7 @@ async def query_endpoint(
 @app.post("/generate")
 async def generate_endpoint(
     req: GenerateRequest,
-    role: Role = Depends(resolve_role),
+    _role: Role = Depends(require_authenticated),
 ):
     """Generation Mode — 產出內容。"""
     from engine.query_engine import generate
@@ -178,7 +177,7 @@ async def generate_endpoint(
 @app.post("/context")
 async def context_endpoint(
     req: ContextRequest,
-    role: Role = Depends(resolve_role),
+    _role: Role = Depends(require_authenticated),
 ):
     """原料包模式 — 只做五層檢索，不呼叫 LLM。
 
@@ -202,13 +201,12 @@ async def context_endpoint(
 @app.post("/ingest")
 async def ingest_endpoint(
     req: IngestRequest,
-    role: Role = Depends(require_owner),
+    _role: Role = Depends(require_owner),
 ):
     """寫入 signals — 限 owner。"""
     from engine.models import Signal, SignalContent, SignalSource, SignalLifecycle
     from engine.signal_store import SignalStore
 
-    _check_owner_exists(req.owner_id)
     store = SignalStore(_config, req.owner_id)
 
     # 轉換 SignalInput → Signal
@@ -250,7 +248,7 @@ async def ingest_endpoint(
 @app.post("/recall")
 async def recall_endpoint(
     req: RecallRequest,
-    role: Role = Depends(resolve_role),
+    _role: Role = Depends(require_authenticated),
 ):
     """記憶回溯 — 搜尋原話 + 時間/情境過濾。"""
     from engine.explorer import recall
@@ -272,7 +270,7 @@ async def recall_endpoint(
 @app.post("/explore")
 async def explore_endpoint(
     req: ExploreRequest,
-    role: Role = Depends(resolve_role),
+    _role: Role = Depends(require_authenticated),
 ):
     """思維展開 — 從主題串連五層資料成樹狀結構。"""
     from engine.explorer import explore
@@ -290,7 +288,7 @@ async def explore_endpoint(
 @app.post("/evolution")
 async def evolution_endpoint(
     req: EvolutionRequest,
-    role: Role = Depends(resolve_role),
+    _role: Role = Depends(require_authenticated),
 ):
     """演變追蹤 — 信念 strength 變化 + 推理風格演變。"""
     from engine.explorer import evolution
@@ -307,7 +305,7 @@ async def evolution_endpoint(
 @app.get("/blindspots")
 async def blindspots_endpoint(
     owner_id: str,
-    role: Role = Depends(resolve_role),
+    _role: Role = Depends(require_authenticated),
 ):
     """盲區偵測 — 說做不一致、思維慣性、輸入輸出失衡。"""
     from engine.explorer import blindspots
@@ -320,7 +318,7 @@ async def blindspots_endpoint(
 @app.post("/connections")
 async def connections_endpoint(
     req: ConnectionsRequest,
-    role: Role = Depends(resolve_role),
+    _role: Role = Depends(require_authenticated),
 ):
     """關係圖譜 — 找兩個主題之間的隱性連結。"""
     from engine.explorer import connections
@@ -338,7 +336,7 @@ async def connections_endpoint(
 @app.post("/simulate")
 async def simulate_endpoint(
     req: SimulateRequest,
-    role: Role = Depends(resolve_role),
+    _role: Role = Depends(require_authenticated),
 ):
     """模擬預測 — 假設情境下的反應路徑。"""
     from engine.explorer import simulate
