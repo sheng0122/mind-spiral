@@ -75,10 +75,10 @@ docker compose up -d --build
 |----------|--------|------|------|
 | `/health` | GET | 不需 | 版本 + uptime + ChromaDB 狀態 |
 | `/stats` | GET | 不需 | 五層數據統計 |
-| `/ask` | POST | 任何角色 | 統一入口（自動判斷 query/generate） |
-| `/query` | POST | 任何角色 | 五層感知查詢 |
-| `/generate` | POST | 任何角色 | 內容產出（article/post/script/decision） |
-| `/context` | POST | 任何角色 | 原料包模式 — 只做五層檢索不呼叫 LLM，供外部 Agent 用 |
+| `/ask` | POST | 需認證（owner/agent/viewer） | 統一入口（自動判斷 query/generate） |
+| `/query` | POST | 需認證（owner/agent/viewer） | 五層感知查詢 |
+| `/generate` | POST | 需認證（owner/agent/viewer） | 內容產出（article/post/script/decision） |
+| `/context` | POST | 需認證（owner/agent/viewer） | 原料包模式 — 只做五層檢索不呼叫 LLM，供外部 Agent 用 |
 | `/ingest` | POST | owner | 寫入 signals |
 
 ### 探索 Endpoints
@@ -191,22 +191,21 @@ docker compose down
 }
 ```
 
-### 12 個 MCP Tools
+### 11 個 MCP Tools
 
 | Tool | 說明 |
 |------|------|
-| `mind_spiral_ask` | 統一入口 — 自動判斷 query 或 generate |
-| `mind_spiral_query` | 五層感知查詢 — 用這個人的思維方式回答問題 |
-| `mind_spiral_generate` | 內容產出 — article/post/script/decision |
-| `mind_spiral_context` | 原料包 — 只做五層檢索不呼叫 LLM，供外部 Agent 用 |
-| `mind_spiral_stats` | 五層數據統計 |
-| `mind_spiral_ingest` | 寫入 signals |
-| `mind_spiral_recall` | 記憶回溯 — 搜尋原話 + 時間/情境過濾 |
-| `mind_spiral_explore` | 思維展開 — 從主題串連五層資料 |
-| `mind_spiral_evolution` | 演變追蹤 — 信念 strength 變化曲線 |
-| `mind_spiral_blindspots` | 盲區偵測 — 說做不一致、思維慣性 |
-| `mind_spiral_connections` | 關係圖譜 — 兩主題間的隱性連結 |
-| `mind_spiral_simulate` | 模擬預測 — 假設情境下的反應路徑 |
+| `joey_ask` | 統一入口 — 自動判斷 query 或 generate |
+| `joey_query` | 五層感知查詢 — 用這個人的思維方式回答問題 |
+| `joey_generate` | 內容產出 — article/post/script/decision |
+| `joey_context` | 原料包 — 只做五層檢索不呼叫 LLM，供外部 Agent 用 |
+| `joey_stats` | 五層數據統計 |
+| `joey_recall` | 記憶回溯 — 搜尋原話 + 時間/情境過濾 |
+| `joey_explore` | 思維展開 — 從主題串連五層資料 |
+| `joey_evolution` | 演變追蹤 — 信念 strength 變化曲線 |
+| `joey_blindspots` | 盲區偵測 — 說做不一致、思維慣性 |
+| `joey_connections` | 關係圖譜 — 兩主題間的隱性連結 |
+| `joey_simulate` | 模擬預測 — 假設情境下的反應路徑 |
 
 ## 環境變數
 

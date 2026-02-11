@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from typing import Literal
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 Role = Literal["owner", "agent", "viewer", "public"]

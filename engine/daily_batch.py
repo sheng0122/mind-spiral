@@ -238,7 +238,7 @@ def run_weekly(owner_id: str, config: dict | None = None) -> dict:
     new_traces = [t for t in traces if t.source.date >= week_ago]
     style_counts: dict[str, int] = {}
     for t in new_traces:
-        style = t.reasoning_style or "unknown"
+        style = t.reasoning_path.style if t.reasoning_path else "unknown"
         style_counts[style] = style_counts.get(style, 0) + 1
 
     # 載入 frames
