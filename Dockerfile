@@ -30,6 +30,6 @@ RUN uv sync --no-dev --frozen 2>/dev/null || uv sync --no-dev
 
 ENV PATH="/app/.venv/bin:$PATH"
 
-EXPOSE 8000
+EXPOSE 8000 8001
 
-CMD ["uvicorn", "engine.api:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "uvicorn engine.api:app --host 0.0.0.0 --port 8000 & python -m engine.mcp_server --http & wait"]

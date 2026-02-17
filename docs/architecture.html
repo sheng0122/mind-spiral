@@ -45,23 +45,54 @@
     max-width: 600px;
   }
 
+  /* Stats Bar */
+  .stats-bar {
+    display: flex;
+    gap: 24px;
+    justify-content: center;
+    padding: 24px 0;
+    margin: 20px 0 0;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    flex-wrap: wrap;
+  }
+  .stat { text-align: center; }
+  .stat-num {
+    font-size: 1.8rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #7c5cfc, #c084fc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .stat-label {
+    font-size: 0.8rem;
+    color: #6b7280;
+    margin-top: 2px;
+  }
+
+  /* Section titles */
+  .section-title {
+    text-align: center;
+    font-size: 1.8rem;
+    color: #c084fc;
+    margin-bottom: 12px;
+  }
+  .section-desc {
+    text-align: center;
+    color: #9ca3af;
+    margin-bottom: 40px;
+    font-size: 1rem;
+  }
+
   /* Purpose Section */
   .purpose {
     max-width: 900px;
     margin: 0 auto;
     padding: 60px 20px;
   }
-  .purpose h2 {
-    font-size: 1.8rem;
-    color: #c084fc;
-    margin-bottom: 24px;
-    text-align: center;
-  }
   .purpose-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 20px;
-    margin-bottom: 40px;
   }
   .purpose-card {
     background: rgba(255,255,255,0.03);
@@ -78,7 +109,6 @@
     font-size: 1.05rem;
     color: #e0e0e0;
   }
-  .purpose-card .emoji { font-size: 1.5rem; margin-bottom: 8px; display: block; }
 
   /* Spiral Container */
   .spiral-section {
@@ -86,24 +116,9 @@
     margin: 0 auto;
     padding: 40px 20px 80px;
   }
-  .spiral-section > h2 {
-    text-align: center;
-    font-size: 1.8rem;
-    color: #c084fc;
-    margin-bottom: 12px;
-  }
-  .spiral-section > p {
-    text-align: center;
-    color: #9ca3af;
-    margin-bottom: 48px;
-    font-size: 1rem;
-  }
 
   /* Layer */
-  .layer {
-    position: relative;
-    margin-bottom: 0;
-  }
+  .layer { margin-bottom: 0; }
   .layer-box {
     border-radius: 16px;
     padding: 32px;
@@ -128,14 +143,8 @@
     font-size: 1.1rem;
     color: #fff;
   }
-  .layer-title {
-    font-size: 1.4rem;
-    font-weight: 700;
-  }
-  .layer-subtitle {
-    font-size: 0.9rem;
-    opacity: 0.7;
-  }
+  .layer-title { font-size: 1.4rem; font-weight: 700; }
+  .layer-subtitle { font-size: 0.9rem; opacity: 0.7; }
   .layer-desc {
     margin-bottom: 20px;
     font-size: 1rem;
@@ -159,18 +168,9 @@
     margin-bottom: 8px;
     opacity: 0.6;
   }
-  .detail-block ul {
-    list-style: none;
-    padding: 0;
-  }
-  .detail-block li {
-    padding: 3px 0;
-    font-size: 0.95rem;
-  }
-  .detail-block li::before {
-    content: "→ ";
-    opacity: 0.4;
-  }
+  .detail-block ul { list-style: none; padding: 0; }
+  .detail-block li { padding: 3px 0; font-size: 0.95rem; }
+  .detail-block li::before { content: "\2192 "; opacity: 0.4; }
   .detail-block code {
     background: rgba(255,255,255,0.08);
     padding: 2px 6px;
@@ -205,7 +205,6 @@
     align-items: center;
     justify-content: center;
     padding: 12px 0;
-    position: relative;
     z-index: 1;
   }
   .connector-line {
@@ -214,10 +213,7 @@
     align-items: center;
     gap: 4px;
   }
-  .connector-arrow {
-    font-size: 1.2rem;
-    opacity: 0.4;
-  }
+  .connector-arrow { font-size: 1.2rem; opacity: 0.4; }
   .connector-label {
     font-size: 0.8rem;
     color: #6b7280;
@@ -227,22 +223,11 @@
     white-space: nowrap;
   }
 
-  /* Control Loops Section */
+  /* Control Loops */
   .loops-section {
     max-width: 1100px;
     margin: 0 auto;
     padding: 60px 20px 80px;
-  }
-  .loops-section h2 {
-    text-align: center;
-    font-size: 1.8rem;
-    color: #c084fc;
-    margin-bottom: 12px;
-  }
-  .loops-section > p {
-    text-align: center;
-    color: #9ca3af;
-    margin-bottom: 40px;
   }
   .loops-grid {
     display: grid;
@@ -254,10 +239,7 @@
     padding: 28px;
     text-align: center;
   }
-  .loop-card h3 {
-    font-size: 1.15rem;
-    margin-bottom: 12px;
-  }
+  .loop-card h3 { font-size: 1.15rem; margin-bottom: 12px; }
   .loop-card .loop-flow {
     font-size: 0.9rem;
     color: #d1d5db;
@@ -277,17 +259,150 @@
   .loop-3 { background: rgba(168,85,247,0.08); border: 1px solid rgba(168,85,247,0.2); }
   .loop-3 h3 { color: #c084fc; }
 
+  /* Query Flow */
+  .query-section {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 60px 20px 80px;
+  }
+  .query-flow {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    overflow-x: auto;
+    padding: 8px 0;
+  }
+  .query-step {
+    flex: 1;
+    min-width: 160px;
+    padding: 20px 16px;
+    text-align: center;
+    border-radius: 12px;
+  }
+  .query-step .step-num { font-size: 0.75rem; opacity: 0.5; margin-bottom: 6px; }
+  .query-step h4 { font-size: 1rem; margin-bottom: 6px; }
+  .query-step p { font-size: 0.85rem; opacity: 0.7; }
+  .query-arrow {
+    display: flex;
+    align-items: center;
+    font-size: 1.5rem;
+    opacity: 0.3;
+    flex-shrink: 0;
+    padding: 0 4px;
+  }
+  .qs-1 { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); }
+  .qs-1 h4 { color: #f87171; }
+  .qs-2 { background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); }
+  .qs-2 h4 { color: #34d399; }
+  .qs-3 { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2); }
+  .qs-3 h4 { color: #fbbf24; }
+  .qs-4 { background: rgba(168,85,247,0.08); border: 1px solid rgba(168,85,247,0.2); }
+  .qs-4 h4 { color: #c084fc; }
+  .qs-5 { background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); }
+  .qs-5 h4 { color: #60a5fa; }
+
+  /* API Section */
+  .api-section {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 60px 20px 80px;
+  }
+  .api-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .api-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 24px;
+  }
+  .api-card h3 { font-size: 1.15rem; margin-bottom: 16px; }
+  .api-card table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  .api-card th {
+    text-align: left;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #6b7280;
+    padding: 4px 0 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .api-card td {
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    vertical-align: top;
+  }
+  .api-card code {
+    background: rgba(255,255,255,0.08);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.82rem;
+  }
+  .method-get { color: #34d399; }
+  .method-post { color: #60a5fa; }
+  .api-time { color: #6b7280; font-size: 0.82rem; }
+
+  /* Explorer Section */
+  .explorer-section {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 60px 20px 80px;
+  }
+  .explorer-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+  }
+  .explorer-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .explorer-card h4 {
+    font-size: 1rem;
+    color: #c084fc;
+    margin-bottom: 8px;
+  }
+  .explorer-card p { font-size: 0.9rem; color: #9ca3af; }
+
+  /* Deploy Section */
+  .deploy-section {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 60px 20px 80px;
+  }
+  .deploy-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+  }
+  .deploy-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 24px;
+  }
+  .deploy-card h3 {
+    font-size: 1rem;
+    color: #9ca3af;
+    margin-bottom: 12px;
+  }
+  .deploy-card p { font-size: 0.95rem; color: #e0e0e0; line-height: 1.7; }
+  .deploy-card code {
+    background: rgba(255,255,255,0.08);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+  }
+
   /* Phase Section */
   .phase-section {
     max-width: 1100px;
     margin: 0 auto;
     padding: 60px 20px 80px;
-  }
-  .phase-section h2 {
-    text-align: center;
-    font-size: 1.8rem;
-    color: #c084fc;
-    margin-bottom: 40px;
   }
   .phase-timeline {
     position: relative;
@@ -340,94 +455,27 @@
   .tag-next { background: rgba(245,158,11,0.15); color: #fbbf24; }
   .tag-future { background: rgba(107,114,128,0.15); color: #9ca3af; }
 
-  /* Data Stats */
-  .stats-bar {
-    display: flex;
-    gap: 24px;
-    justify-content: center;
-    padding: 24px 0;
-    margin: 20px 0 0;
-    border-top: 1px solid rgba(255,255,255,0.06);
-  }
-  .stat {
-    text-align: center;
-  }
-  .stat-num {
-    font-size: 1.8rem;
-    font-weight: 700;
-    background: linear-gradient(135deg, #7c5cfc, #c084fc);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  .stat-label {
-    font-size: 0.8rem;
-    color: #6b7280;
-    margin-top: 2px;
-  }
-
-  /* Query Flow */
-  .query-section {
+  /* Perf Section */
+  .perf-section {
     max-width: 1100px;
     margin: 0 auto;
     padding: 60px 20px 80px;
   }
-  .query-section h2 {
-    text-align: center;
-    font-size: 1.8rem;
-    color: #c084fc;
-    margin-bottom: 12px;
+  .perf-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
   }
-  .query-section > p {
-    text-align: center;
-    color: #9ca3af;
-    margin-bottom: 40px;
-  }
-  .query-flow {
-    display: flex;
-    align-items: stretch;
-    gap: 0;
-    overflow-x: auto;
-    padding: 8px 0;
-  }
-  .query-step {
-    flex: 1;
-    min-width: 160px;
-    padding: 20px 16px;
-    text-align: center;
+  .perf-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
     border-radius: 12px;
-    position: relative;
+    padding: 24px;
   }
-  .query-step .step-num {
-    font-size: 0.75rem;
-    opacity: 0.5;
-    margin-bottom: 6px;
-  }
-  .query-step h4 {
-    font-size: 1rem;
-    margin-bottom: 6px;
-  }
-  .query-step p {
-    font-size: 0.85rem;
-    opacity: 0.7;
-  }
-  .query-arrow {
-    display: flex;
-    align-items: center;
-    font-size: 1.5rem;
-    opacity: 0.3;
-    flex-shrink: 0;
-    padding: 0 4px;
-  }
-  .qs-1 { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); }
-  .qs-1 h4 { color: #f87171; }
-  .qs-2 { background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); }
-  .qs-2 h4 { color: #34d399; }
-  .qs-3 { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2); }
-  .qs-3 h4 { color: #fbbf24; }
-  .qs-4 { background: rgba(168,85,247,0.08); border: 1px solid rgba(168,85,247,0.2); }
-  .qs-4 h4 { color: #c084fc; }
-  .qs-5 { background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); }
-  .qs-5 h4 { color: #60a5fa; }
+  .perf-card h3 { font-size: 1.05rem; color: #34d399; margin-bottom: 12px; }
+  .perf-card ul { list-style: none; padding: 0; }
+  .perf-card li { padding: 4px 0; font-size: 0.9rem; color: #d1d5db; }
+  .perf-card li::before { content: "\2192 "; opacity: 0.4; }
 
   /* Footer */
   .footer {
@@ -441,9 +489,13 @@
   /* Responsive */
   @media (max-width: 768px) {
     .hero h1 { font-size: 2rem; }
-    .purpose-grid { grid-template-columns: 1fr; }
-    .layer-details { grid-template-columns: 1fr; }
-    .loops-grid { grid-template-columns: 1fr; }
+    .purpose-grid,
+    .layer-details,
+    .loops-grid,
+    .api-grid,
+    .explorer-grid,
+    .deploy-grid,
+    .perf-grid { grid-template-columns: 1fr; }
     .query-flow { flex-direction: column; }
     .query-arrow { justify-content: center; transform: rotate(90deg); }
   }
@@ -463,34 +515,31 @@
   </div>
   <div class="stats-bar">
     <div class="stat"><div class="stat-num">2,737</div><div class="stat-label">Signals</div></div>
-    <div class="stat"><div class="stat-num">46</div><div class="stat-label">Convictions</div></div>
-    <div class="stat"><div class="stat-num">392</div><div class="stat-label">Traces</div></div>
-    <div class="stat"><div class="stat-num">5</div><div class="stat-label">Layers</div></div>
+    <div class="stat"><div class="stat-num">369</div><div class="stat-label">Convictions</div></div>
+    <div class="stat"><div class="stat-num">254</div><div class="stat-label">Traces</div></div>
+    <div class="stat"><div class="stat-num">5</div><div class="stat-label">Frames</div></div>
+    <div class="stat"><div class="stat-num">2</div><div class="stat-label">Identity Cores</div></div>
   </div>
 </section>
 
 <!-- Purpose -->
 <section class="purpose">
-  <h2>為什麼要做這件事？</h2>
+  <h2 class="section-title">Why</h2>
   <div class="purpose-grid">
     <div class="purpose-card">
-      <span class="emoji">🎯</span>
-      <h3>問題</h3>
+      <h3>Problem</h3>
       <p>創業者、講師每天產生大量想法，散落在會議、聊天、搜尋、筆記中。沒有人幫他們整理「自己到底相信什麼」。</p>
     </div>
     <div class="purpose-card">
-      <span class="emoji">🌀</span>
-      <h3>解法</h3>
+      <h3>Approach</h3>
       <p>從已有行為中被動擷取信號，用交叉比對讓信念自己浮現。不需要填問卷、寫日記，使用者每天花 0-2 分鐘。</p>
     </div>
     <div class="purpose-card">
-      <span class="emoji">🤖</span>
-      <h3>終極目標</h3>
+      <h3>Goal</h3>
       <p>建構出足夠精確的思維模型，讓 AI 數位分身能在特定情境下，用這個人的信念、推理風格和語氣回應。</p>
     </div>
     <div class="purpose-card">
-      <span class="emoji">🔄</span>
-      <h3>閉環系統</h3>
+      <h3>Closed-Loop</h3>
       <p>不只是被動觀察——決策會被追蹤，結果回饋會修正信念強度。系統會越來越準確，這就是「螺旋」。</p>
     </div>
   </div>
@@ -498,10 +547,10 @@
 
 <!-- Five Layers -->
 <section class="spiral-section">
-  <h2>五層思維模型</h2>
-  <p>由下而上湧現，由上而下約束。每一層都可追溯到下一層的證據來源。</p>
+  <h2 class="section-title">五層思維模型</h2>
+  <p class="section-desc">由下而上湧現，由上而下約束。每一層都可追溯到下一層的證據來源。</p>
 
-  <!-- Layer 1 -->
+  <!-- Layer 1: Signal -->
   <div class="layer layer-1">
     <div class="layer-box">
       <div class="layer-header">
@@ -538,27 +587,24 @@
         </div>
       </div>
       <div class="detail-block" style="margin-top:16px">
-        <h4>程式碼路徑</h4>
+        <h4>Code</h4>
         <ul>
-          <li>Schema: <code>schemas/signal.json</code></li>
-          <li>引擎: <code>engine/signal_store.py</code> — CRUD + ChromaDB embedding 索引</li>
-          <li>儲存: <code>data/{owner_id}/signals.jsonl</code></li>
-          <li>來源: 各 instance 的輸入管線（如 <code>16_moltbot_joey/process_*.py</code>）</li>
+          <li><code>engine/signal_store.py</code> — CRUD + ChromaDB embedding + singleton embedder</li>
+          <li><code>data/{owner}/signals.jsonl</code></li>
         </ul>
       </div>
     </div>
   </div>
 
-  <!-- Connector 1→2 -->
   <div class="connector">
     <div class="connector-line">
-      <div class="connector-arrow">▲</div>
+      <div class="connector-arrow">&#9650;</div>
       <div class="connector-label">embedding 聚類 + 五種共鳴收斂偵測</div>
-      <div class="connector-arrow">▲</div>
+      <div class="connector-arrow">&#9650;</div>
     </div>
   </div>
 
-  <!-- Layer 2 -->
+  <!-- Layer 2: Conviction -->
   <div class="layer layer-2">
     <div class="layer-box">
       <div class="layer-header">
@@ -594,34 +640,33 @@
         </div>
       </div>
       <div class="detail-block" style="margin-top:16px">
-        <h4>程式碼路徑</h4>
+        <h4>Code</h4>
         <ul>
-          <li>Schema: <code>schemas/conviction.json</code></li>
-          <li>引擎: <code>engine/conviction_detector.py</code> — AgglomerativeClustering + 共鳴 + LLM 歸納 + 幻覺過濾</li>
-          <li>矛盾: <code>engine/contradiction_alert.py</code> — cosine 比對 + LLM 信心分數</li>
-          <li>儲存: <code>data/{owner_id}/convictions.jsonl</code></li>
+          <li><code>engine/conviction_detector.py</code> — 聚類 + 共鳴 + LLM 歸納 + 幻覺過濾 + batch embedding</li>
+          <li><code>engine/conviction_deduper.py</code> — 語意去重（cosine + LLM 確認）</li>
+          <li><code>engine/contradiction_alert.py</code> — cosine 比對 + LLM 信心分數 + pair cache</li>
+          <li><code>data/{owner}/convictions.jsonl</code></li>
         </ul>
       </div>
     </div>
   </div>
 
-  <!-- Connector 1→3 & 2↔3 -->
   <div class="connector">
     <div class="connector-line">
-      <div class="connector-arrow">▲</div>
+      <div class="connector-arrow">&#9650;</div>
       <div class="connector-label">從 output signal 的論述段落提取 + conviction 交叉引用</div>
-      <div class="connector-arrow">▲</div>
+      <div class="connector-arrow">&#9650;</div>
     </div>
   </div>
 
-  <!-- Layer 3 -->
+  <!-- Layer 3: Reasoning Trace -->
   <div class="layer layer-3">
     <div class="layer-box">
       <div class="layer-header">
         <div class="layer-badge">L3</div>
         <div>
           <div class="layer-title">Reasoning Trace 推理軌跡</div>
-          <div class="layer-subtitle">情境 → 信念激活 → 推理步驟 → 結論 → 回饋</div>
+          <div class="layer-subtitle">情境 &rarr; 信念激活 &rarr; 推理步驟 &rarr; 結論 &rarr; 回饋</div>
         </div>
       </div>
       <div class="layer-desc">
@@ -633,46 +678,44 @@
           <h4>推理結構</h4>
           <ul>
             <li><strong>Trigger</strong> — 什麼情境觸發了推理</li>
-            <li><strong>Activated Convictions</strong> — 啟動了哪些信念、各自扮演什麼角色</li>
-            <li><strong>Reasoning Path</strong> — 推理步驟序列 + 風格（analytical / storytelling / ...）</li>
+            <li><strong>Activated Convictions</strong> — 啟動了哪些信念</li>
+            <li><strong>Reasoning Path</strong> — 推理步驟序列 + 風格</li>
             <li><strong>Conclusion</strong> — 最終決定 + 信心 + 替代方案</li>
-            <li><strong>Outcome</strong> — 後來怎樣 → 回饋到 conviction strength</li>
+            <li><strong>Outcome</strong> — 後來怎樣 &rarr; 回饋到 conviction strength</li>
           </ul>
         </div>
         <div class="detail-block">
           <h4>推理風格</h4>
           <ul>
-            <li><code>analytical</code> 分析型</li>
-            <li><code>first_principles</code> 第一性原理</li>
+            <li><code>first_principles</code> 第一性原理 (77)</li>
+            <li><code>analytical</code> 分析型 (74)</li>
+            <li><code>empathy_driven</code> 同理驅動 (35)</li>
+            <li><code>pattern_matching</code> 模式匹配 (32)</li>
             <li><code>storytelling</code> 敘事型</li>
             <li><code>socratic</code> 蘇格拉底式</li>
-            <li><code>empathy_driven</code> 同理驅動</li>
-            <li><code>pattern_matching</code> 模式匹配</li>
           </ul>
         </div>
       </div>
       <div class="detail-block" style="margin-top:16px">
-        <h4>程式碼路徑</h4>
+        <h4>Code</h4>
         <ul>
-          <li>Schema: <code>schemas/reasoning_trace.json</code></li>
-          <li>引擎: <code>engine/trace_extractor.py</code> — 按 (date, context) 分組 + batch LLM 提取</li>
-          <li>回饋: <code>engine/decision_tracker.py</code> — outcome 追蹤 + conviction strength 螺旋調整</li>
-          <li>儲存: <code>data/{owner_id}/traces.jsonl</code></li>
+          <li><code>engine/trace_extractor.py</code> — 按 (date, context) 分組 + batch LLM + 去重</li>
+          <li><code>engine/decision_tracker.py</code> — outcome 追蹤 + conviction strength 螺旋調整</li>
+          <li><code>data/{owner}/traces.jsonl</code></li>
         </ul>
       </div>
     </div>
   </div>
 
-  <!-- Connector 3→4 -->
   <div class="connector">
     <div class="connector-line">
-      <div class="connector-arrow">▲</div>
-      <div class="connector-label">相似 trace 聚類 → 情境框架湧現</div>
-      <div class="connector-arrow">▲</div>
+      <div class="connector-arrow">&#9650;</div>
+      <div class="connector-label">相似 trace 聚類 &rarr; 情境框架湧現</div>
+      <div class="connector-arrow">&#9650;</div>
     </div>
   </div>
 
-  <!-- Layer 4 -->
+  <!-- Layer 4: Context Frame -->
   <div class="layer layer-4">
     <div class="layer-box">
       <div class="layer-header">
@@ -684,52 +727,50 @@
       </div>
       <div class="layer-desc">
         同一個人面對客戶 vs 面對團隊，會啟動不同的信念組合、用不同的推理方式、說不同風格的話。
-        這不是虛偽，是正常的情境適應。Context Frame 就是這個<strong>激活函數</strong>。
-        這是 query engine 匹配情境的核心。
+        Context Frame 就是這個<strong>激活函數</strong>，也是 query engine 匹配情境的核心。
       </div>
       <div class="layer-details">
         <div class="detail-block">
           <h4>Frame 組成</h4>
           <ul>
-            <li><strong>trigger_patterns</strong> — 什麼情境激活此 frame（關鍵字 + 對象類型）</li>
-            <li><strong>primary_convictions</strong> — 激活的信念 + 激活權重</li>
-            <li><strong>suppressed_convictions</strong> — 被壓制的信念 + 原因</li>
-            <li><strong>reasoning_patterns</strong> — 偏好風格 + 典型步驟序列</li>
+            <li><strong>trigger_patterns</strong> — 情境關鍵字 + 對象類型</li>
+            <li><strong>primary_convictions</strong> — 激活的信念 + 權重</li>
+            <li><strong>suppressed_convictions</strong> — 被壓制的信念</li>
+            <li><strong>reasoning_patterns</strong> — 偏好風格 + 典型步驟</li>
             <li><strong>voice</strong> — 語氣、口頭禪、避免的說法</li>
-            <li><strong>effectiveness</strong> — 歷史成功率（從 trace outcome 統計）</li>
+            <li><strong>effectiveness</strong> — 歷史成功率</li>
           </ul>
         </div>
         <div class="detail-block">
-          <h4>範例 Frame</h4>
+          <h4>Joey 的 5 個 Frame</h4>
           <ul>
-            <li>「高價銷售應對」— 面對客戶質疑價格時</li>
-            <li>「團隊決策」— 成員請示決定時</li>
-            <li>「教學引導」— 帶學生時</li>
-            <li>「個人反思」— 獨處思考時</li>
+            <li>Action-First Validation — 行動驗證優先</li>
+            <li>Value-Driven Pragmatic Action — 價值導向實用</li>
+            <li>Systems-First Design Thinking — 系統設計思維</li>
+            <li>Long-termism Asset Building — 長期資產累積</li>
+            <li>Role Definition &amp; Systems Priority — 角色定義優先</li>
           </ul>
         </div>
       </div>
       <div class="detail-block" style="margin-top:16px">
-        <h4>程式碼路徑</h4>
+        <h4>Code</h4>
         <ul>
-          <li>Schema: <code>schemas/context_frame.json</code> ✅ 已完成</li>
-          <li>引擎: <code>engine/frame_clusterer.py</code> — ✅ 按 context 分組 + 統計 + LLM 生成 metadata</li>
-          <li>儲存: <code>data/{owner_id}/frames.jsonl</code></li>
+          <li><code>engine/frame_clusterer.py</code> — 語意聚類 + 統計 + LLM 生成 metadata</li>
+          <li><code>data/{owner}/frames.jsonl</code></li>
         </ul>
       </div>
     </div>
   </div>
 
-  <!-- Connector 4→5 -->
   <div class="connector">
     <div class="connector-line">
-      <div class="connector-arrow">▲</div>
-      <div class="connector-label">跨所有 frame 都出現的信念 → 升級為身份核心</div>
-      <div class="connector-arrow">▲</div>
+      <div class="connector-arrow">&#9650;</div>
+      <div class="connector-label">跨所有 frame 都出現的信念 &rarr; 升級為身份核心</div>
+      <div class="connector-arrow">&#9650;</div>
     </div>
   </div>
 
-  <!-- Layer 5 -->
+  <!-- Layer 5: Identity Core -->
   <div class="layer layer-5">
     <div class="layer-box">
       <div class="layer-header">
@@ -750,25 +791,24 @@
             <li>conviction 在 >80% 的 active frame 都被激活</li>
             <li>strength score 通常 > 0.85</li>
             <li>數量控制在 5-15 條</li>
-            <li>定期重新掃描（每月）</li>
+            <li>Guardian fallback：frame 不足時取 top-3 覆蓋率</li>
           </ul>
         </div>
         <div class="detail-block">
           <h4>作用</h4>
           <ul>
             <li>Query Engine 生成回應前的最終檢查</li>
-            <li>違反 identity → 回溯修正（航向保持）</li>
+            <li>違反 identity &rarr; 回溯修正（航向保持）</li>
             <li>新 frame 形成時的約束條件</li>
             <li>數位分身的「人格底線」</li>
           </ul>
         </div>
       </div>
       <div class="detail-block" style="margin-top:16px">
-        <h4>程式碼路徑</h4>
+        <h4>Code</h4>
         <ul>
-          <li>Schema: <code>schemas/identity_core.json</code> ✅ 已完成</li>
-          <li>引擎: <code>engine/identity_scanner.py</code> — ✅ 跨 frame 覆蓋率篩選 + LLM 生成 expressions</li>
-          <li>儲存: <code>data/{owner_id}/identity.json</code></li>
+          <li><code>engine/identity_scanner.py</code> — 跨 frame 覆蓋率篩選 + LLM expressions + fallback</li>
+          <li><code>data/{owner}/identity.json</code></li>
         </ul>
       </div>
     </div>
@@ -777,86 +817,74 @@
 
 <!-- Control Loops -->
 <section class="loops-section">
-  <h2>三個閉環控制迴圈</h2>
-  <p>Mind Spiral 不只是被動觀察——它是一個有目標、有航向的閉環控制系統</p>
+  <h2 class="section-title">三個閉環控制迴圈</h2>
+  <p class="section-desc">Mind Spiral 不只是被動觀察——它是一個有目標、有航向的閉環控制系統</p>
   <div class="loops-grid">
     <div class="loop-card loop-1">
-      <h3>迴圈 1：螺旋回饋</h3>
+      <h3>Spiral Feedback</h3>
       <div class="loop-flow">
-        決策產生<br>
-        ↓<br>
-        追蹤等待結果<br>
-        ↓<br>
-        outcome 回來<br>
-        ↓<br>
-        conviction strength 調整<br>
-        ↓<br>
+        決策產生<br>&darr;<br>
+        追蹤等待結果<br>&darr;<br>
+        outcome 回來<br>&darr;<br>
+        conviction strength 調整<br>&darr;<br>
         影響下次推理
       </div>
-      <div class="loop-goal">目標：讓 conviction 越來越準確反映現實</div>
+      <div class="loop-goal">讓 conviction 越來越準確反映現實</div>
     </div>
     <div class="loop-card loop-2">
-      <h3>迴圈 2：一致性維護</h3>
+      <h3>Consistency Guard</h3>
       <div class="loop-flow">
-        新 conviction 出現<br>
-        ↓<br>
-        cosine 比對既有 convictions<br>
-        ↓<br>
-        偵測矛盾 / 演化 / 情境依賴<br>
-        ↓<br>
-        通知使用者確認<br>
-        ↓<br>
+        新 conviction 出現<br>&darr;<br>
+        cosine 比對既有 convictions<br>&darr;<br>
+        偵測矛盾 / 演化 / 情境依賴<br>&darr;<br>
+        通知使用者確認<br>&darr;<br>
         更新信念關係
       </div>
-      <div class="loop-goal">目標：維護認知模型的內部一致性</div>
+      <div class="loop-goal">維護認知模型的內部一致性</div>
     </div>
     <div class="loop-card loop-3">
-      <h3>迴圈 3：查詢導航</h3>
+      <h3>Query Navigation</h3>
       <div class="loop-flow">
-        問題進來<br>
-        ↓<br>
-        匹配 Context Frame<br>
-        ↓<br>
-        激活 Conviction 組合<br>
-        ↓<br>
-        找推理路徑模板<br>
-        ↓<br>
-        Identity 檢查 → 生成回應
+        問題進來<br>&darr;<br>
+        匹配 Context Frame<br>&darr;<br>
+        激活 Conviction 組合<br>&darr;<br>
+        找推理路徑模板<br>&darr;<br>
+        Identity 檢查 &rarr; 生成回應
       </div>
-      <div class="loop-goal">目標：生成「像這個人」的回答</div>
+      <div class="loop-goal">生成「像這個人」的回答</div>
     </div>
   </div>
 </section>
 
 <!-- Query Flow -->
 <section class="query-section">
-  <h2>Query Engine — 五層感知導航</h2>
-  <p>當有人問「Joey 怎麼看定價？」時，引擎怎麼走</p>
+  <h2 class="section-title">Query Engine — 五層感知導航</h2>
+  <p class="section-desc">當有人問「Joey 怎麼看定價？」時，引擎怎麼走</p>
   <div class="query-flow">
     <div class="query-step qs-1">
       <div class="step-num">STEP 1</div>
       <h4>Frame Matching</h4>
-      <p>匹配情境框架<br>→ 「高價銷售應對」</p>
+      <p>匹配情境框架<br>&rarr; 反射匹配 or embedding</p>
     </div>
-    <div class="query-arrow">→</div>
+    <div class="query-arrow">&rarr;</div>
     <div class="query-step qs-2">
       <div class="step-num">STEP 2</div>
       <h4>Conviction Activation</h4>
       <p>激活信念組合<br>+ 各自權重</p>
     </div>
-    <div class="query-arrow">→</div>
+    <div class="query-arrow">&rarr;</div>
     <div class="query-step qs-3">
       <div class="step-num">STEP 3</div>
       <h4>Trace Retrieval</h4>
       <p>找類似情境的<br>推理路徑模板</p>
     </div>
-    <div class="query-arrow">→</div>
+    <div class="query-arrow">&rarr;</div>
     <div class="query-step qs-4">
       <div class="step-num">STEP 4</div>
       <h4>Identity Check</h4>
       <p>確認不違反<br>身份核心</p>
     </div>
-    <div class="query-arrow">→</div>
+    <div class="query-arrow">&rarr;</div>
     <div class="query-step qs-5">
       <div class="step-num">STEP 5</div>
       <h4>Response</h4>
@@ -865,9 +893,152 @@
   </div>
 </section>
 
+<!-- API Server -->
+<section class="api-section">
+  <h2 class="section-title">API Server + MCP</h2>
+  <p class="section-desc">13 個 HTTP endpoints + 12 個 MCP tools，部署在 joey.shifu-ai.org:8000</p>
+  <div class="api-grid">
+    <div class="api-card">
+      <h3 style="color:#60a5fa">Base Endpoints (7)</h3>
+      <table>
+        <tr><th>Route</th><th>Description</th><th>Speed</th></tr>
+        <tr><td><span class="method-get">GET</span> <code>/health</code></td><td>健康檢查 + uptime</td><td class="api-time">&lt; 0.5s</td></tr>
+        <tr><td><span class="method-get">GET</span> <code>/stats</code></td><td>五層資料統計</td><td class="api-time">&lt; 0.5s</td></tr>
+        <tr><td><span class="method-post">POST</span> <code>/ask</code></td><td>統一入口（自動路由 query/generate）</td><td class="api-time">~10-13s</td></tr>
+        <tr><td><span class="method-post">POST</span> <code>/query</code></td><td>五層推理問答</td><td class="api-time">~10s</td></tr>
+        <tr><td><span class="method-post">POST</span> <code>/generate</code></td><td>內容產出（article/post/script/decision）</td><td class="api-time">~13s</td></tr>
+        <tr><td><span class="method-post">POST</span> <code>/context</code></td><td>原料包（0 LLM tokens）</td><td class="api-time">&lt; 1s</td></tr>
+        <tr><td><span class="method-post">POST</span> <code>/ingest</code></td><td>寫入 signals（需 owner token）</td><td class="api-time">&lt; 1s</td></tr>
+      </table>
+    </div>
+    <div class="api-card">
+      <h3 style="color:#c084fc">Explorer Endpoints (6)</h3>
+      <table>
+        <tr><th>Route</th><th>Description</th><th>Speed</th></tr>
+        <tr><td><span class="method-post">POST</span> <code>/recall</code></td><td>記憶搜尋（原文 + 篩選）</td><td class="api-time">0.3-1.6s</td></tr>
+        <tr><td><span class="method-post">POST</span> <code>/explore</code></td><td>心智展開（五層樹狀結構）</td><td class="api-time">0.3-1.6s</td></tr>
+        <tr><td><span class="method-post">POST</span> <code>/evolution</code></td><td>信念演化追蹤</td><td class="api-time">0.3-1.6s</td></tr>
+        <tr><td><span class="method-get">GET</span> <code>/blindspots</code></td><td>盲區偵測（言行不一致）</td><td class="api-time">&lt; 0.5s</td></tr>
+        <tr><td><span class="method-post">POST</span> <code>/connections</code></td><td>主題間隱藏連結</td><td class="api-time">0.3-1.6s</td></tr>
+        <tr><td><span class="method-post">POST</span> <code>/simulate</code></td><td>情境模擬（預測反應）</td><td class="api-time">~30s</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- Explorer Modes -->
+<section class="explorer-section">
+  <h2 class="section-title">六種探索模式</h2>
+  <p class="section-desc">不只問答——深入探索思維模型的每個角落</p>
+  <div class="explorer-grid">
+    <div class="explorer-card">
+      <h4>Recall</h4>
+      <p>搜尋原始記憶。支援文字、情境、日期範圍篩選，回傳完整 signal metadata。</p>
+    </div>
+    <div class="explorer-card">
+      <h4>Explore</h4>
+      <p>心智展開。一個主題 &rarr; 五層樹狀結構。lite 模式只回信念，full 模式展開全部。</p>
+    </div>
+    <div class="explorer-card">
+      <h4>Evolution</h4>
+      <p>信念演化時間軸。追蹤 strength 變化 + 推理風格分佈，看觀點怎麼隨時間移動。</p>
+    </div>
+    <div class="explorer-card">
+      <h4>Blindspots</h4>
+      <p>盲區偵測。找出言行不一致、思維慣性、input-output 失衡的地方。</p>
+    </div>
+    <div class="explorer-card">
+      <h4>Connections</h4>
+      <p>隱藏連結。兩個看似無關的主題之間，共享哪些信念、推理軌跡和框架。</p>
+    </div>
+    <div class="explorer-card">
+      <h4>Simulate</h4>
+      <p>情境模擬。假設性場景 &rarr; 預測反應路徑 + 盲區警告。最耗時但最強大。</p>
+    </div>
+  </div>
+</section>
+
+<!-- Deployment -->
+<section class="deploy-section">
+  <h2 class="section-title">部署架構</h2>
+  <p class="section-desc">Docker multi-stage build，部署在 Akamai VPS (Singapore)</p>
+  <div class="deploy-grid">
+    <div class="deploy-card">
+      <h3>Infrastructure</h3>
+      <p>
+        Akamai Singapore<br>
+        2 core / 3.8GB RAM<br>
+        Ubuntu 22.04<br>
+        <code>joey.shifu-ai.org:8000</code>
+      </p>
+    </div>
+    <div class="deploy-card">
+      <h3>LLM Backend</h3>
+      <p>
+        Anthropic API (cloud mode)<br>
+        Heavy/Medium: <code>Sonnet</code><br>
+        Light: <code>Haiku</code><br>
+        Embedding: <code>embeddinggemma-300m</code>
+      </p>
+    </div>
+    <div class="deploy-card">
+      <h3>Auth</h3>
+      <p>
+        Bearer token, 四種角色：<br>
+        <code>owner</code> (full access)<br>
+        <code>agent</code> / <code>viewer</code> (read)<br>
+        <code>public</code> (query only)
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- Performance -->
+<section class="perf-section">
+  <h2 class="section-title">效能優化歷程</h2>
+  <p class="section-desc">四輪優化，daily batch 從數分鐘降到 1 分鐘，ask/generate 從 ~40s 降到 ~23s</p>
+  <div class="perf-grid">
+    <div class="perf-card">
+      <h3>Round 1 — Indexing &amp; Caching</h3>
+      <ul>
+        <li>Conviction vector indices (ChromaDB)</li>
+        <li>五層資料 per-owner cache</li>
+        <li>ChromaDB client singleton</li>
+        <li>Embedding model singleton (startup pre-load)</li>
+      </ul>
+    </div>
+    <div class="perf-card">
+      <h3>Round 2 — CloneMemBench</h3>
+      <ul>
+        <li>Signal backtracking（conviction &rarr; 原文）</li>
+        <li>Temporal query 偵測</li>
+        <li>Confidence calibration（標記 low_confidence）</li>
+      </ul>
+    </div>
+    <div class="perf-card">
+      <h3>Round 3 — Full Engine Review</h3>
+      <ul>
+        <li>LLM 三檔制（task-based tier）</li>
+        <li>Embedding batch mode（5-10x 加速）</li>
+        <li>Daily batch signal cache</li>
+        <li>Contradiction pair cache</li>
+      </ul>
+    </div>
+    <div class="perf-card">
+      <h3>Round 4 — Execution</h3>
+      <ul>
+        <li>New conviction: batch LLM</li>
+        <li>Contradiction scan: batch LLM (max 50 pairs)</li>
+        <li>Query/generate output: Sonnet (not Opus)</li>
+        <li>Daily batch: &rarr; 1 min, ask: &rarr; ~23s</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
 <!-- Phase Timeline -->
 <section class="phase-section">
-  <h2>開發路線圖</h2>
+  <h2 class="section-title">開發路線圖</h2>
   <div class="phase-timeline">
     <div class="phase-item done">
       <h3>Phase 0 — 基礎建設 <span class="phase-tag tag-done">完成</span></h3>
@@ -879,10 +1050,14 @@
     </div>
     <div class="phase-item current">
       <h3>Phase 2 — 上層模型 + 數位分身 <span class="phase-tag tag-next">進行中</span></h3>
-      <p>Frame Clusterer ✅ + Identity Scanner ✅ + Query Engine ✅（反射匹配 + 航向保持）。待做：Signal 預過濾、信念漂移偵測、動態 Strength 調整（PID）</p>
+      <p>Frame Clusterer + Identity Scanner + Query Engine + Generate Mode + ask 統一入口。待做：Signal 預過濾、信念漂移偵測、動態 Strength 調整（PID）</p>
+    </div>
+    <div class="phase-item done">
+      <h3>Phase 2.5 — 外部整合層 <span class="phase-tag tag-done">完成</span></h3>
+      <p>FastAPI Server (13 endpoints) + Bearer Auth + MCP Server (12 tools) + Docker 部署 + VPS 上線 + Embedding 效能優化 + Skill progressive disclosure</p>
     </div>
     <div class="phase-item future">
-      <h3>Phase 3 — 被動擷取（延後） <span class="phase-tag tag-future">延後</span></h3>
+      <h3>Phase 3 — 被動擷取 <span class="phase-tag tag-future">延後</span></h3>
       <p>瀏覽器插件（搜尋/點擊/停留/畫線）、搜尋鏈偵測</p>
     </div>
     <div class="phase-item future">

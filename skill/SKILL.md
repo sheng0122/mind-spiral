@@ -6,7 +6,7 @@ description: 呼叫 Mind Spiral 人類思維模型引擎，用某個人的五層
 # Mind Spiral — 人類思維模型引擎
 
 ```
-BASE_URL = http://joey.shifu-ai.org:8000
+BASE_URL = https://joey.shifu-ai.org
 ```
 
 回應格式：`{"status": "ok/error", "data": {...}, "meta": null}`
